@@ -1,6 +1,16 @@
 import { SCORE_THRESHOLDS, SCREENING_STATUS } from '../constants/ScoreLevels.js';
 
-export function normalizeCandidateScore(record) {
+export interface RawCandidateScoreRecord {
+  overall_score: number;
+  screening_status?: string;
+  cultural_fit?: number;
+  cultural_fit_score?: number;
+  location_match?: number;
+  location_match_score?: number;
+  [key: string]: unknown;
+}
+
+export function normalizeCandidateScore(record: RawCandidateScoreRecord): Record<string, unknown> {
   const score = record.overall_score;
   const status =
     score >= SCORE_THRESHOLDS.EXCELLENT
@@ -18,7 +28,7 @@ export function normalizeCandidateScore(record) {
   };
 }
 
-export function normalizeLeadScore(record) {
+export function normalizeLeadScore(record: Record<string, any> | null): Record<string, any> | null {
   if (!record) return null;
   return {
     ...record,
@@ -31,7 +41,7 @@ export function normalizeLeadScore(record) {
   };
 }
 
-export function normalizeInterviewSchedule(record) {
+export function normalizeInterviewSchedule(record: Record<string, any> | null): Record<string, any> | null {
   if (!record) return null;
   return {
     ...record,
@@ -46,7 +56,7 @@ export function normalizeInterviewSchedule(record) {
   };
 }
 
-export function normalizeInterview(record) {
+export function normalizeInterview(record: Record<string, any>): Record<string, any> {
   return {
     ...record,
     candidateId: record.candidate_id,
