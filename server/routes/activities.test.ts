@@ -5,7 +5,7 @@
  */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, beforeAll } from 'vitest';
 import express from 'express';
 import request from 'supertest';
 
@@ -382,15 +382,13 @@ vi.mock('exceljs', () => {
     addRow: vi.fn(),
     getRow: vi.fn(() => ({ font: {} })),
   };
-  const mockWorkbook = {
-    addWorksheet: vi.fn(() => mockSheet),
-    xlsx: {
+  class MockWorkbook {
+    addWorksheet = vi.fn(() => mockSheet);
+    xlsx = {
       writeBuffer: vi.fn().mockResolvedValue(Buffer.from('XLSX_BINARY_STUB')),
-    },
-  };
-  // The route calls `new ExcelJS.Workbook()`, so the default export must be
-  // an object with a `Workbook` constructor property.
-  return { default: { Workbook: vi.fn(() => mockWorkbook) }, __esModule: true };
+    };
+  }
+  return { default: { Workbook: MockWorkbook }, Workbook: MockWorkbook, __esModule: true };
 });
 
 describe('W18.1-P1-002 — GET /api/activities/export/csv', () => {
