@@ -1,12 +1,11 @@
 {
-  "watch": ["server", "prisma"],
+  "watch": ["server", "prisma", "src"],
   "ext": "ts,js,json",
   "ignore": [
     "dist",
     "coverage",
     "node_modules",
     "modules/**",
-    "src/**",
     "**/*.test.ts",
     "**/*.spec.ts"
   ],
