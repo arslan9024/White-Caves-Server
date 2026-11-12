@@ -1,0 +1,344 @@
+/**
+ * RelationshipEntitiesHub.tsx
+ * White Caves Real Estate LLC - Entities Hub View Primitive with Full CRUD Operations
+ * Standard: AEGIS Canonical 7-Category Architecture Standard (View Primitive)
+ * Single Purpose File Law: < 350 lines
+ */
+
+import React, { FC, useState, useMemo, useEffect } from 'react';
+import { Plus, Search, Edit2, Trash2, Eye, ArrowLeft } from 'lucide-react';
+import type { EntityNode, EntityType } from './RelationshipManager.types';
+import { CANONICAL_ALL_ENTITIES, ENTITY_TYPE_OPTIONS } from './RelationshipEntities.data';
+import { EntityFormModal, EntityInspectModal } from './RelationshipEntityModals';
+import { ErmsEntityDrawer } from './ErmsEntityDrawer';
+import { ErmsRbacSecurityLedger } from './ErmsRbacSecurityLedger';
+import { ErmsBulkImporterModal } from './ErmsBulkImporterModal';
+
+const STORAGE_KEY = 'whitecaves_all_entities_store';
+
+const loadStoredEntities = (): EntityNode[] => {
+  if (typeof window === 'undefined') return CANONICAL_ALL_ENTITIES;
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
+  } catch {}
+  return CANONICAL_ALL_ENTITIES;
+};
+
+const saveStoredEntities = (entities: EntityNode[]) => {
+  if (typeof window === 'undefined') return;
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(entities)); } catch {}
+};
+
+export interface RelationshipEntitiesHubProps {
+  selectedEntityId?: string | null;
+  onSelectEntity?: (id: string) => void;
+  onNavigateBack?: () => void;
+}
+
+export const RelationshipEntitiesHub: FC<RelationshipEntitiesHubProps> = ({
+  selectedEntityId,
+  onSelectEntity,
+  onNavigateBack,
+}) => {
+  const [entities, setEntities] = useState<EntityNode[]>(loadStoredEntities);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedType, setSelectedType] = useState<string>('ALL');
+
+  // Modal state
+  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [isQuickDrawerOpen, setIsQuickDrawerOpen] = useState(false);
+  const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [activeViewNode, setActiveViewNode] = useState<EntityNode | null>(null);
+
+  // Form State
+  const [formData, setFormData] = useState({ name: '', type: 'PROPERTY' as EntityType, badge: '', description: '', status: 'ACTIVE' });
+
+  useEffect(() => {
+    if (selectedEntityId) {
+      const match = entities.find(e => e.id.toLowerCase() === selectedEntityId.toLowerCase());
+      if (match) setActiveViewNode(match);
+    }
+  }, [selectedEntityId, entities]);
+
+  const handleOpenCreate = () => {
+    setEditingId(null);
+    setFormData({ name: '', type: 'PROPERTY', badge: 'Active Item', description: '', status: 'ACTIVE' });
+    setIsFormOpen(true);
+  };
+
+  const handleOpenEdit = (node: EntityNode) => {
+    setEditingId(node.id);
+    setFormData({ name: node.name, type: node.type, badge: node.badge, description: node.description, status: node.status || 'ACTIVE' });
+    setIsFormOpen(true);
+  };
+
+  const handleDelete = (id: string) => {
+    if (typeof window !== 'undefined' && !window.confirm(`Delete entity ${id}?`)) return;
+    const next = entities.filter(e => e.id !== id);
+    setEntities(next);
+    saveStoredEntities(next);
+    if (activeViewNode?.id === id) setActiveViewNode(null);
+  };
+
+  const handleFormSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formData.name.trim()) return;
+
+    if (editingId) {
+      const next = entities.map(item =>
+        item.id === editingId ? { ...item, ...formData } : item
+      );
+      setEntities(next);
+      saveStoredEntities(next);
+    } else {
+      const newNode: EntityNode = {
+        id: `entity-${Date.now()}`,
+        name: formData.name,
+        type: formData.type,
+        badge: formData.badge || 'Registered Entity',
+        description: formData.description,
+        status: formData.status,
+        color: '#3B82F6',
+        details: { createdAt: new Date().toISOString() },
+      };
+      const next = [newNode, ...entities];
+      setEntities(next);
+      saveStoredEntities(next);
+    }
+    setIsFormOpen(false);
+  };
+
+  const filteredEntities = useMemo(() => {
+    return entities.filter(e => {
+      let matchesType = true;
+      if (selectedType === 'ACTORS') matchesType = e.category === 'ACTOR';
+      else if (selectedType === 'OBJECTS') matchesType = e.category === 'OBJECT';
+      else if (selectedType !== 'ALL') matchesType = e.type === selectedType;
+
+      const matchesSearch =
+        e.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        e.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        e.description.toLowerCase().includes(searchQuery.toLowerCase());
+      return matchesType && matchesSearch;
+    });
+  }, [entities, selectedType, searchQuery]);
+
+  const typeOptions = ENTITY_TYPE_OPTIONS;
+
+  if (selectedEntityId && activeViewNode) {
+    return (
+      <div data-testid="entity-detail-main-view" className="space-y-4">
+        <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+          <button
+            type="button"
+            onClick={() => { setActiveViewNode(null); onNavigateBack?.(); }}
+            data-testid="entity-back-btn"
+            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-emerald-400 text-xs font-bold transition-colors cursor-pointer border border-slate-700"
+          >
+            <ArrowLeft size={15} />
+            <span>← Back to Entities Hub</span>
+          </button>
+          <span className="font-mono text-xs text-sky-400 font-bold">{activeViewNode.id}</span>
+        </div>
+
+        <div className="p-6 rounded-xl bg-slate-900 border border-slate-800 space-y-4">
+          <div className="flex items-center gap-2">
+            <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-slate-800 text-slate-300">{activeViewNode.type}</span>
+            <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-950/40 text-emerald-300 border border-emerald-800/40">{activeViewNode.badge}</span>
+            <span className="font-mono text-[11px] text-emerald-400 ml-auto">{activeViewNode.status || 'ACTIVE'}</span>
+          </div>
+
+          <h2 className="text-xl font-bold text-white">{activeViewNode.name}</h2>
+          <p className="text-xs text-slate-300">{activeViewNode.description}</p>
+          <ErmsRbacSecurityLedger entity={activeViewNode} />
+
+          <div className="p-4 rounded-lg bg-slate-950 border border-slate-800 text-xs font-mono space-y-2">
+            <div className="text-[10px] uppercase font-bold text-slate-500 mb-2">Relational Attributes</div>
+            {Object.entries(activeViewNode.details || {}).map(([k, v]) => (
+              <div key={k} className="flex justify-between py-1 border-b border-slate-800/50">
+                <span className="text-slate-400">{k}:</span>
+                <span className="text-emerald-400 font-semibold">{String(v)}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4" data-testid="relationship-entities-hub">
+      {/* ── Top Action & Filter Bar ──────────────────────────────────────── */}
+      <div className="flex items-center justify-between flex-wrap gap-3 p-4 rounded-xl bg-slate-900/60 border border-slate-800">
+        <div className="flex items-center gap-3 flex-1 min-w-[280px]">
+          <div className="relative flex-1">
+            <Search size={15} className="absolute left-3 top-2.5 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Search all entities by ID, name, or metadata..."
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              className="w-full bg-slate-950 border border-slate-800 rounded-lg pl-9 pr-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500"
+            />
+          </div>
+          <button
+            onClick={() => setIsBulkModalOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold transition-all whitespace-nowrap border border-slate-700"
+            data-testid="bulk-import-entity-btn"
+          >
+            <Plus size={14} /> Bulk Ingest
+          </button>
+          <button
+            onClick={() => setIsQuickDrawerOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-red-600 hover:bg-red-500 text-white text-xs font-bold transition-all whitespace-nowrap shadow-md shadow-red-600/20"
+            data-testid="quick-create-entity-btn"
+          >
+            <Plus size={14} /> Quick Ingest
+          </button>
+          <button
+            onClick={handleOpenCreate}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-all whitespace-nowrap"
+            data-testid="create-entity-btn"
+          >
+            <Plus size={14} /> Add Entity
+          </button>
+        </div>
+
+        {/* Entity Type Filter Pills */}
+        <div className="flex items-center gap-1 flex-wrap">
+          {typeOptions.map(t => (
+            <button
+              key={t.id}
+              onClick={() => setSelectedType(t.id)}
+              className={`px-2 py-1 rounded text-[11px] font-bold transition-all ${
+                selectedType === t.id
+                  ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                  : 'bg-slate-950 text-slate-400 border border-slate-800 hover:text-white'
+              }`}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* ── Table Container ──────────────────────────────────────────────── */}
+      <div className="rounded-xl border border-slate-800 bg-slate-950/70 overflow-hidden">
+        <table className="w-full text-left text-xs">
+          <thead className="bg-slate-900/80 border-b border-slate-800 text-slate-400 uppercase tracking-wider font-mono text-[10px]">
+            <tr>
+              <th className="py-2.5 px-4">Entity ID</th>
+              <th className="py-2.5 px-4">Name / Label</th>
+              <th className="py-2.5 px-4">Type</th>
+              <th className="py-2.5 px-4">Role Badge</th>
+              <th className="py-2.5 px-4">Status</th>
+              <th className="py-2.5 px-4 text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-800/60">
+            {filteredEntities.map(node => (
+              <tr key={node.id} className="hover:bg-slate-900/50 transition-colors">
+                <td className="py-3 px-4 font-mono font-bold text-sky-400">{node.id}</td>
+                <td className="py-3 px-4">
+                  <div className="font-bold text-white">{node.name}</div>
+                  <div className="text-[11px] text-slate-400 truncate max-w-[280px]">
+                    {node.description}
+                  </div>
+                </td>
+                <td className="py-3 px-4">
+                  <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-slate-800 text-slate-300">
+                    {node.type}
+                  </span>
+                </td>
+                <td className="py-3 px-4">
+                  <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-950/40 text-emerald-300 border border-emerald-800/40">
+                    {node.badge}
+                  </span>
+                </td>
+                <td className="py-3 px-4 font-mono text-[11px] text-emerald-400">
+                  {node.status || 'ACTIVE'}
+                </td>
+                <td className="py-3 px-4 text-right">
+                  <div className="flex items-center justify-end gap-1.5">
+                    <button
+                      onClick={() => {
+                        setActiveViewNode(node);
+                        onSelectEntity?.(node.id);
+                      }}
+                      className="p-1.5 rounded hover:bg-slate-800 text-slate-400 hover:text-white"
+                      title="Inspect Details"
+                      data-testid={`inspect-entity-${node.id}`}
+                    >
+                      <Eye size={13} />
+                    </button>
+                    <button
+                      onClick={() => handleOpenEdit(node)}
+                      className="p-1.5 rounded hover:bg-slate-800 text-slate-400 hover:text-sky-400"
+                      title="Edit Entity"
+                      data-testid={`edit-entity-${node.id}`}
+                    >
+                      <Edit2 size={13} />
+                    </button>
+                    <button
+                      onClick={() => handleDelete(node.id)}
+                      className="p-1.5 rounded hover:bg-slate-800 text-slate-400 hover:text-rose-400"
+                      title="Delete Entity"
+                      data-testid={`delete-entity-${node.id}`}
+                    >
+                      <Trash2 size={13} />
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* ── Create / Edit Entity Modal ────────────────────────────────────── */}
+      <EntityFormModal
+        isOpen={isFormOpen}
+        editingId={editingId}
+        formData={formData}
+        typeOptions={typeOptions}
+        onClose={() => setIsFormOpen(false)}
+        onSubmit={handleFormSubmit}
+        onChangeField={(field, val) => setFormData(prev => ({ ...prev, [field]: val }))}
+      />
+
+      {/* ── View Details Modal (only when not on deep route) ────────────── */}
+      {!selectedEntityId && (
+        <EntityInspectModal node={activeViewNode} onClose={() => setActiveViewNode(null)} />
+      )}
+
+      {/* ── Atomic Quick-Create Drawer & Bulk Ingestion (Pillars 1, 3, 4) ── */}
+      <ErmsEntityDrawer
+        isOpen={isQuickDrawerOpen}
+        onClose={() => setIsQuickDrawerOpen(false)}
+        onSave={newEntity => {
+          const next = [newEntity, ...entities];
+          setEntities(next);
+          saveStoredEntities(next);
+        }}
+      />
+
+      <ErmsBulkImporterModal
+        isOpen={isBulkModalOpen}
+        existingEntities={entities}
+        onClose={() => setIsBulkModalOpen(false)}
+        onImport={imported => {
+          const next = [...imported, ...entities];
+          setEntities(next);
+          saveStoredEntities(next);
+        }}
+      />
+    </div>
+  );
+};
+
+export default RelationshipEntitiesHub;

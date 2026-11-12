@@ -1,0 +1,300 @@
+/**
+ * TaskManager.tasks.data.ts
+ * 7-Category Architecture: Data Layer (Canonical 200 Tasks Generator)
+ * Complete 200 Statutory, Financial, Sales, and Operational Tasks for Dubai Real Estate LLC
+ */
+
+import type {
+  TaskNode,
+  TaskReportingChain,
+  TaskPriority,
+  TaskStatus,
+  TaskHierarchyLineage,
+  RUPUseCaseDossier,
+} from './TaskManager.types';
+import { CORPORATE_DEPARTMENTS_12 } from '../../../data/assistants108Registry.data';
+
+interface RawTaskDef {
+  code: string;
+  title: string;
+  pillarId: string;
+  pillarName: string;
+  category: TaskNode['category'];
+  authority: string;
+  sla: string;
+  priority: TaskPriority;
+  supervisor: string;
+  manager: string;
+  director: string;
+}
+
+// prettier-ignore
+const RAW_TASK_DEFINITIONS: Array< [string, string, string, string, TaskNode['category'], string, string, TaskPriority, string, string, string]> = [
+  // Pillar I: Legal & Regulatory (1-35)
+  ['TSK-001', 'Verify RERA Broker Card Active Status & Renewals', 'pillar-1', 'Pillar I: Legal & Regulatory', 'REGULATORY', 'RERA / DLD', '24 Hours', 'CRITICAL', 'Supervisor Amira', 'Manager Farooq', 'Adv. Tariq Mansoor',],
+  ['TSK-002', 'DLD Form A (Listing Agreement) Verification & Filing', 'pillar-1', 'Pillar I: Legal & Regulatory', 'REGULATORY', 'DLD Trakheesi', '4 Hours', 'CRITICAL', 'Supervisor Amira', 'Manager Farooq', 'Adv. Tariq Mansoor',],
+  ['TSK-003', 'DLD Form B (Buyer Representation Agreement) Execution', 'pillar-1', 'Pillar I: Legal & Regulatory', 'REGULATORY', 'DLD', '4 Hours', 'HIGH', 'Supervisor Amira', 'Manager Farooq', 'Adv. Tariq Mansoor',],
+  ['TSK-004', 'DLD Form F (Contract of Sale / MOU) Generation', 'pillar-1', 'Pillar I: Legal & Regulatory', 'REGULATORY', 'DLD', '2 Hours', 'CRITICAL', 'Supervisor Amira', 'Manager Farooq', 'Adv. Tariq Mansoor',],
+  ['TSK-005', 'Title Deed Instant Blockchain Validation via DLD API', 'pillar-1', 'Pillar I: Legal & Regulatory', 'REGULATORY', 'DLD Blockchain', '15 Mins', 'HIGH', 'Supervisor Amira', 'Manager Farooq', 'Adv. Tariq Mansoor',],
+  ['TSK-006', 'Tenancy Ejari Online Registration & Barcode Issuance', 'pillar-1', 'Pillar I: Legal & Regulatory', 'REGULATORY', 'Ejari Portal', '2 Hours', 'HIGH', 'Supervisor Leila', 'Manager Farooq', 'Adv. Tariq Mansoor',],
+  ['TSK-007', 'Ejari Cancellation & Security Clearance Verification', 'pillar-1', 'Pillar I: Legal & Regulatory', 'REGULATORY', 'Ejari Portal', '24 Hours', 'MEDIUM', 'Supervisor Leila', 'Manager Farooq', 'Adv. Tariq Mansoor',],
+  ['TSK-008', 'AML / CFT Sanctions Screening via UAE FIU GoAML', 'pillar-1', 'Pillar I: Legal & Regulatory', 'REGULATORY', 'UAE FIU / AML', '1 Hour', 'CRITICAL', 'Supervisor Amira', 'Manager Farooq', 'Adv. Tariq Mansoor',],
+  ['TSK-009', 'Source of Funds (SOF) & High-Net-Worth KYC Verification', 'pillar-1', 'Pillar I: Legal & Regulatory', 'REGULATORY', 'CBUAE / AML', '2 Hours', 'CRITICAL', 'Supervisor Amira', 'Manager Farooq', 'Adv. Tariq Mansoor',],
+  ['TSK-010', 'PEP (Politically Exposed Persons) Enhanced Due Diligence', 'pillar-1', 'Pillar I: Legal & Regulatory', 'REGULATORY', 'Compliance', '4 Hours', 'HIGH', 'Supervisor Amira', 'Manager Farooq', 'Adv. Tariq Mansoor',],
+  ['TSK-011', 'Power of Attorney (POA) Dubai Courts Verification', 'pillar-1', 'Pillar I: Legal & Regulatory', 'REGULATORY', 'Dubai Courts', '2 Hours', 'CRITICAL', 'Supervisor Amira', 'Manager Farooq', 'Adv. Tariq Mansoor',],
+  ['TSK-012', 'Developer No Objection Certificate (NOC) Application', 'pillar-1', 'Pillar I: Legal & Regulatory', 'REGULATORY', 'Developer / DLD', '48 Hours', 'HIGH', 'Supervisor Leila', 'Manager Farooq', 'Adv. Tariq Mansoor',],
+  ['TSK-013', 'Trustee Office Conveyancing & Manager Cheque Audit', 'pillar-1', 'Pillar I: Legal & Regulatory', 'REGULATORY', 'DLD Trustee', '2 Hours', 'CRITICAL', 'Supervisor Leila', 'Manager Farooq', 'Adv. Tariq Mansoor',],
+  ['TSK-014', 'DLD 4% Transfer Fee Payment & Receipt Reconciliation', 'pillar-1', 'Pillar I: Legal & Regulatory', 'REGULATORY', 'DLD Treasury', '2 Hours', 'CRITICAL', 'Supervisor Leila', 'Manager Farooq', 'Adv. Tariq Mansoor',],
+  ['TSK-015', 'Rental Dispute Center (RDC) Eviction Notice Verification', 'pillar-1', 'Pillar I: Legal & Regulatory', 'REGULATORY', 'RDC / Courts', '24 Hours', 'HIGH', 'Supervisor Amira', 'Manager Farooq', 'Adv. Tariq Mansoor',],
+  ['TSK-016', 'RDC Formal Mediation Dispute Defense Dossier Assembly', 'pillar-1', 'Pillar I: Legal & Regulatory', 'REGULATORY', 'RDC', '48 Hours', 'MEDIUM', 'Supervisor Amira', 'Manager Farooq', 'Adv. Tariq Mansoor',],
+  ['TSK-017', 'RERA Rental Calculator Annual Index Rent Review', 'pillar-1', 'Pillar I: Legal & Regulatory', 'REGULATORY', 'RERA Index', '2 Hours', 'MEDIUM', 'Supervisor Leila', 'Manager Farooq', 'Adv. Tariq Mansoor',],
+  ['TSK-018', 'DET Commercial License Renewal & Activities Audit', 'pillar-1', 'Pillar I: Legal & Regulatory', 'REGULATORY', 'DET Dubai', '1 Week', 'HIGH', 'Supervisor Amira', 'Manager Farooq', 'Adv. Tariq Mansoor',],
+  ['TSK-019', 'Ministry of Human Resources (MOHRE) Quota Review', 'pillar-1', 'Pillar I: Legal & Regulatory', 'REGULATORY', 'MOHRE', '1 Week', 'HIGH', 'Supervisor Amira', 'Manager Farooq', 'Adv. Tariq Mansoor',],
+  ['TSK-020', 'Investor Residency Visa Golden Visa Check', 'pillar-1', 'Pillar I: Legal & Regulatory', 'REGULATORY', 'ICP / GDRFA', '24 Hours', 'HIGH', 'Supervisor Amira', 'Manager Farooq', 'Adv. Tariq Mansoor',],
+  ['TSK-021', 'Employment Visa Medical Fitness & Emirates ID Liaison', 'pillar-1', 'Pillar I: Legal & Regulatory', 'REGULATORY', 'DHA / ICP', '48 Hours', 'MEDIUM', 'Supervisor Leila', 'Manager Farooq', 'Adv. Tariq Mansoor',],
+  ['TSK-022', 'Short-Term Rental (STR) Holiday Home Unit Permit Audit', 'pillar-1', 'Pillar I: Legal & Regulatory', 'REGULATORY', 'DET Tourism', '24 Hours', 'HIGH', 'Supervisor Leila', 'Manager Farooq', 'Adv. Tariq Mansoor',],
+  ['TSK-023', 'Developer Escrow Account Status & Project Milestone Audit', 'pillar-1', 'Pillar I: Legal & Regulatory', 'REGULATORY', 'DLD Escrow', '4 Hours', 'CRITICAL', 'Supervisor Amira', 'Manager Farooq', 'Adv. Tariq Mansoor',],
+  ['TSK-024', 'Trakheesi Real Estate Advertisement Permit Generation', 'pillar-1', 'Pillar I: Legal & Regulatory', 'REGULATORY', 'Trakheesi', '2 Hours', 'CRITICAL', 'Supervisor Leila', 'Manager Farooq', 'Adv. Tariq Mansoor',],
+  ['TSK-025', 'Social Media Advertising QR Code Mandate Verification', 'pillar-1', 'Pillar I: Legal & Regulatory', 'REGULATORY', 'RERA', '1 Hour', 'HIGH', 'Supervisor Leila', 'Manager Farooq', 'Adv. Tariq Mansoor',],
+  ['TSK-026', 'Bounced Cheque Legal Notification (PDC Default Notice)', 'pillar-1', 'Pillar I: Legal & Regulatory', 'REGULATORY', 'Legal Dept', '24 Hours', 'HIGH', 'Supervisor Amira', 'Manager Farooq', 'Adv. Tariq Mansoor',],
+  ['TSK-027', 'Corporate Lease Agreement Custom Clause Legal Review', 'pillar-1', 'Pillar I: Legal & Regulatory', 'REGULATORY', 'Legal Dept', '12 Hours', 'HIGH', 'Supervisor Amira', 'Manager Farooq', 'Adv. Tariq Mansoor',],
+  ['TSK-028', 'Notarized Power of Attorney Revocation Notification', 'pillar-1', 'Pillar I: Legal & Regulatory', 'REGULATORY', 'Dubai Notary', '12 Hours', 'HIGH', 'Supervisor Amira', 'Manager Farooq', 'Adv. Tariq Mansoor',],
+  ['TSK-029', 'UAE PDPL Client Data Privacy Compliance Audit', 'pillar-1', 'Pillar I: Legal & Regulatory', 'REGULATORY', 'Data Privacy', '1 Month', 'MEDIUM', 'Supervisor Amira', 'Manager Farooq', 'Adv. Tariq Mansoor',],
+  ['TSK-030', 'DLD Mortgage Registration Fee Calculation & Filing', 'pillar-1', 'Pillar I: Legal & Regulatory', 'REGULATORY', 'DLD / Banks', '4 Hours', 'HIGH', 'Supervisor Leila', 'Manager Farooq', 'Adv. Tariq Mansoor',],
+  ['TSK-031', 'Mortgage Discharge Certificate Verification', 'pillar-1', 'Pillar I: Legal & Regulatory', 'REGULATORY', 'DLD / Banks', '24 Hours', 'HIGH', 'Supervisor Leila', 'Manager Farooq', 'Adv. Tariq Mansoor',],
+  ['TSK-032', 'Off-Plan Oqood Pre-Registration Certificate Audit', 'pillar-1', 'Pillar I: Legal & Regulatory', 'REGULATORY', 'DLD Oqood', '4 Hours', 'HIGH', 'Supervisor Leila', 'Manager Farooq', 'Adv. Tariq Mansoor',],
+  ['TSK-033', 'Off-Plan Project Cancellation Liquidation Claim Liaison', 'pillar-1', 'Pillar I: Legal & Regulatory', 'REGULATORY', 'DLD Committee', '1 Week', 'MEDIUM', 'Supervisor Amira', 'Manager Farooq', 'Adv. Tariq Mansoor',],
+  ['TSK-034', 'Developer Late Delivery Penalty Clause Enforcement', 'pillar-1', 'Pillar I: Legal & Regulatory', 'REGULATORY', 'Legal / Courts', '48 Hours', 'MEDIUM', 'Supervisor Amira', 'Manager Farooq', 'Adv. Tariq Mansoor',],
+  ['TSK-035', 'Annual Regulatory Compliance Audit Sign-Off', 'pillar-1', 'Pillar I: Legal & Regulatory', 'REGULATORY', 'RERA Board', '1 Month', 'CRITICAL', 'Supervisor Amira', 'Manager Farooq', 'Adv. Tariq Mansoor',],
+
+  // Pillar II: Finance & Accounting (36-70)
+  ['TSK-036', 'Daily Bank Account Reconciliations (ADCB, ENBD, FAB)', 'pillar-2', 'Pillar II: Finance & Accounting', 'FINANCE', 'Treasury', 'Daily', 'CRITICAL', 'Supervisor Zayd', 'Manager Hisham', 'Fatima Al-Zahra',],
+  ['TSK-037', 'Client Security Deposit Escrow Account Balancing', 'pillar-2', 'Pillar II: Finance & Accounting', 'FINANCE', 'Escrow Unit', 'Daily', 'CRITICAL', 'Supervisor Zayd', 'Manager Hisham', 'Fatima Al-Zahra',],
+  ['TSK-038', 'Broker Commission 50/50 & Tiered Split Calculations', 'pillar-2', 'Pillar II: Finance & Accounting', 'FINANCE', 'Payroll', '4 Hours', 'HIGH', 'Supervisor Maya', 'Manager Hisham', 'Fatima Al-Zahra',],
+  ['TSK-039', 'VAT 5% Tax Invoice Issuance (TRN Registered)', 'pillar-2', 'Pillar II: Finance & Accounting', 'FINANCE', 'UAE FTA', '2 Hours', 'CRITICAL', 'Supervisor Zayd', 'Manager Hisham', 'Fatima Al-Zahra',],
+  ['TSK-040', 'Quarterly VAT Return Filing (FTA Form VAT201)', 'pillar-2', 'Pillar II: Finance & Accounting', 'FINANCE', 'UAE FTA', 'Quarterly', 'CRITICAL', 'Supervisor Zayd', 'Manager Hisham', 'Fatima Al-Zahra',],
+  ['TSK-041', 'Annual Corporate Tax Return Computation (9% Over 375k)', 'pillar-2', 'Pillar II: Finance & Accounting', 'FINANCE', 'UAE FTA', 'Annual', 'CRITICAL', 'Supervisor Zayd', 'Manager Hisham', 'Fatima Al-Zahra',],
+  ['TSK-042', 'Monthly Staff Wage Protection System (WPS) SIF Generation', 'pillar-2', 'Pillar II: Finance & Accounting', 'FINANCE', 'CBUAE / MOHRE', 'Monthly', 'CRITICAL', 'Supervisor Maya', 'Manager Hisham', 'Fatima Al-Zahra',],
+  ['TSK-043', 'Post-Dated Cheque (PDC) Vault Custody Logging', 'pillar-2', 'Pillar II: Finance & Accounting', 'FINANCE', 'Treasury', 'Daily', 'HIGH', 'Supervisor Zayd', 'Manager Hisham', 'Fatima Al-Zahra',],
+  ['TSK-044', 'PDC Bank Lodgement Processing (7 Days Pre-Due Date)', 'pillar-2', 'Pillar II: Finance & Accounting', 'FINANCE', 'Operations', 'Daily', 'HIGH', 'Supervisor Zayd', 'Manager Hisham', 'Fatima Al-Zahra',],
+  ['TSK-045', 'Vendor Accounts Payable Voucher Matching & Payment', 'pillar-2', 'Pillar II: Finance & Accounting', 'FINANCE', 'AP Unit', '48 Hours', 'MEDIUM', 'Supervisor Maya', 'Manager Hisham', 'Fatima Al-Zahra',],
+  ['TSK-046', 'Developer Commission Invoicing & Follow-up Tracking', 'pillar-2', 'Pillar II: Finance & Accounting', 'FINANCE', 'AR Unit', 'Weekly', 'HIGH', 'Supervisor Maya', 'Manager Hisham', 'Fatima Al-Zahra',],
+  ['TSK-047', 'Foreign Exchange (FX) Inward Wire Hedging & Settlement', 'pillar-2', 'Pillar II: Finance & Accounting', 'FINANCE', 'Treasury', '2 Hours', 'HIGH', 'Supervisor Zayd', 'Manager Hisham', 'Fatima Al-Zahra',],
+  ['TSK-048', 'Petty Cash Float Verification & Reconciliation', 'pillar-2', 'Pillar II: Finance & Accounting', 'FINANCE', 'Finance', 'Weekly', 'STANDARD', 'Supervisor Maya', 'Manager Hisham', 'Fatima Al-Zahra',],
+  ['TSK-049', 'Monthly Profit & Loss Statement (P&L) Production', 'pillar-2', 'Pillar II: Finance & Accounting', 'FINANCE', 'FP&A', 'Monthly', 'HIGH', 'Supervisor Zayd', 'Manager Hisham', 'Fatima Al-Zahra',],
+  ['TSK-050', 'Balance Sheet & Fixed Asset Depreciation Calculations', 'pillar-2', 'Pillar II: Finance & Accounting', 'FINANCE', 'Accounting', 'Monthly', 'MEDIUM', 'Supervisor Zayd', 'Manager Hisham', 'Fatima Al-Zahra',],
+  ['TSK-051', 'Cash Flow 13-Week Forward Liquidity Forecast', 'pillar-2', 'Pillar II: Finance & Accounting', 'FINANCE', 'FP&A', 'Weekly', 'HIGH', 'Supervisor Zayd', 'Manager Hisham', 'Fatima Al-Zahra',],
+  ['TSK-052', 'External Audit Working Papers Assembly', 'pillar-2', 'Pillar II: Finance & Accounting', 'FINANCE', 'Auditors', 'Annual', 'CRITICAL', 'Supervisor Zayd', 'Manager Hisham', 'Fatima Al-Zahra',],
+  ['TSK-053', 'Commission Clawback Processing on Cancelled Deals', 'pillar-2', 'Pillar II: Finance & Accounting', 'FINANCE', 'Finance', '24 Hours', 'MEDIUM', 'Supervisor Maya', 'Manager Hisham', 'Fatima Al-Zahra',],
+  ['TSK-054', 'Key Money & Advance Rental Escrow Custody Release', 'pillar-2', 'Pillar II: Finance & Accounting', 'FINANCE', 'Escrow Unit', '4 Hours', 'HIGH', 'Supervisor Zayd', 'Manager Hisham', 'Fatima Al-Zahra',],
+  ['TSK-055', 'Maintenance Expense Chargeback Invoicing to Landlords', 'pillar-2', 'Pillar II: Finance & Accounting', 'FINANCE', 'Property Mgmt', '24 Hours', 'MEDIUM', 'Supervisor Maya', 'Manager Hisham', 'Fatima Al-Zahra',],
+  ['TSK-056', 'DEWA Security Deposit Refund Clearing', 'pillar-2', 'Pillar II: Finance & Accounting', 'FINANCE', 'DEWA', '48 Hours', 'STANDARD', 'Supervisor Maya', 'Manager Hisham', 'Fatima Al-Zahra',],
+  ['TSK-057', 'Utility Bill (DEWA, Empower, Chiller) Reconciliation', 'pillar-2', 'Pillar II: Finance & Accounting', 'FINANCE', 'Accounts', 'Monthly', 'STANDARD', 'Supervisor Maya', 'Manager Hisham', 'Fatima Al-Zahra',],
+  ['TSK-058', 'Corporate Credit Card Expense Reconciliation', 'pillar-2', 'Pillar II: Finance & Accounting', 'FINANCE', 'AP Unit', 'Monthly', 'STANDARD', 'Supervisor Maya', 'Manager Hisham', 'Fatima Al-Zahra',],
+  ['TSK-059', 'Agent Desk Fee & Portal Slot Charge Accounting', 'pillar-2', 'Pillar II: Finance & Accounting', 'FINANCE', 'Internal AR', 'Monthly', 'STANDARD', 'Supervisor Maya', 'Manager Hisham', 'Fatima Al-Zahra',],
+  ['TSK-060', 'Cross-Border Wire Transfer Compliance Clearance', 'pillar-2', 'Pillar II: Finance & Accounting', 'FINANCE', 'Banking / AML', '4 Hours', 'CRITICAL', 'Supervisor Zayd', 'Manager Hisham', 'Fatima Al-Zahra',],
+  ['TSK-061', 'Digital Wallet & Escrow API Balance Verification', 'pillar-2', 'Pillar II: Finance & Accounting', 'FINANCE', 'Treasury', 'Daily', 'HIGH', 'Supervisor Zayd', 'Manager Hisham', 'Fatima Al-Zahra',],
+  ['TSK-062', 'Annual Budget Allocation for Marketing & Portals', 'pillar-2', 'Pillar II: Finance & Accounting', 'FINANCE', 'CFO / MD', 'Annual', 'HIGH', 'Supervisor Zayd', 'Manager Hisham', 'Fatima Al-Zahra',],
+  ['TSK-063', 'End of Service Gratuity (EOSG) UAE Labor Law Calc', 'pillar-2', 'Pillar II: Finance & Accounting', 'FINANCE', 'Payroll', '24 Hours', 'MEDIUM', 'Supervisor Maya', 'Manager Hisham', 'Fatima Al-Zahra',],
+  ['TSK-064', 'Financial Risk & Liquidity Ratio Review', 'pillar-2', 'Pillar II: Finance & Accounting', 'FINANCE', 'Finance Dir', 'Monthly', 'HIGH', 'Supervisor Zayd', 'Manager Hisham', 'Fatima Al-Zahra',],
+  ['TSK-065', 'Bank Facility & Letter of Credit (LC) Compliance', 'pillar-2', 'Pillar II: Finance & Accounting', 'FINANCE', 'Treasury', 'Monthly', 'HIGH', 'Supervisor Zayd', 'Manager Hisham', 'Fatima Al-Zahra',],
+  ['TSK-066', 'Unidentified Wire Transfer Reconciliation & Holding', 'pillar-2', 'Pillar II: Finance & Accounting', 'FINANCE', 'AR Unit', '24 Hours', 'MEDIUM', 'Supervisor Maya', 'Manager Hisham', 'Fatima Al-Zahra',],
+  ['TSK-067', 'Tax Residency Certificate Liaison for Foreign Investors', 'pillar-2', 'Pillar II: Finance & Accounting', 'FINANCE', 'FTA Desk', '1 Week', 'MEDIUM', 'Supervisor Maya', 'Manager Hisham', 'Fatima Al-Zahra',],
+  ['TSK-068', 'Bad Debt Provisioning & Write-Off Review', 'pillar-2', 'Pillar II: Finance & Accounting', 'FINANCE', 'CFO Office', 'Quarterly', 'MEDIUM', 'Supervisor Zayd', 'Manager Hisham', 'Fatima Al-Zahra',],
+  ['TSK-069', 'Capital Expenditure (CAPEX) Approval Gatekeeping', 'pillar-2', 'Pillar II: Finance & Accounting', 'FINANCE', 'Finance / MD', '48 Hours', 'HIGH', 'Supervisor Zayd', 'Manager Hisham', 'Fatima Al-Zahra',],
+  ['TSK-070', 'Sovereign Vault Reserve Asset Valuation', 'pillar-2', 'Pillar II: Finance & Accounting', 'FINANCE', 'Treasury', 'Monthly', 'HIGH', 'Supervisor Zayd', 'Manager Hisham', 'Fatima Al-Zahra',],
+
+  // Pillar III: Human Capital & Talent (71-100)
+  ['TSK-071', 'Senior Real Estate Broker Headhunting & Sourcing', 'pillar-3', 'Pillar III: Human Capital', 'HR', 'Recruitment', 'Continuous', 'HIGH', 'Supervisor Dalia', 'Manager Omar', 'Nadia Karim',],
+  ['TSK-072', 'Candidate Background Check & License Verification', 'pillar-3', 'Pillar III: Human Capital', 'HR', 'HR', '48 Hours', 'HIGH', 'Supervisor Dalia', 'Manager Omar', 'Nadia Karim',],
+  ['TSK-073', 'RERA Certified Training Exam Booking & Coordination', 'pillar-3', 'Pillar III: Human Capital', 'HR', 'DLD Training', '24 Hours', 'HIGH', 'Supervisor Dalia', 'Manager Omar', 'Nadia Karim',],
+  ['TSK-074', 'MOHRE Standard Offer Letter & Employment Contract', 'pillar-3', 'Pillar III: Human Capital', 'HR', 'MOHRE', '24 Hours', 'CRITICAL', 'Supervisor Dalia', 'Manager Omar', 'Nadia Karim',],
+  ['TSK-075', 'New Agent IT Equipment & CRM Seat Provisioning', 'pillar-3', 'Pillar III: Human Capital', 'HR', 'HR / IT', '4 Hours', 'MEDIUM', 'Supervisor Dalia', 'Manager Omar', 'Nadia Karim',],
+  ['TSK-076', 'White Caves Luxury Brand & Script Onboarding Session', 'pillar-3', 'Pillar III: Human Capital', 'HR', 'Training', 'Day 1', 'HIGH', 'Supervisor Sami', 'Manager Omar', 'Nadia Karim',],
+  ['TSK-077', 'Broker Commission Contract Agreement Execution', 'pillar-3', 'Pillar III: Human Capital', 'HR', 'Legal / HR', '24 Hours', 'CRITICAL', 'Supervisor Dalia', 'Manager Omar', 'Nadia Karim',],
+  ['TSK-078', 'Agent Monthly Target & KPI Scorecard Calibration', 'pillar-3', 'Pillar III: Human Capital', 'HR', 'Sales / HR', 'Monthly', 'HIGH', 'Supervisor Sami', 'Manager Omar', 'Nadia Karim',],
+  ['TSK-079', 'Mandatory Health Insurance Enrolment (DHA Enjaz)', 'pillar-3', 'Pillar III: Human Capital', 'HR', 'HR', '48 Hours', 'HIGH', 'Supervisor Dalia', 'Manager Omar', 'Nadia Karim',],
+  ['TSK-080', 'Annual Leave Calendar Management & Coverage Planning', 'pillar-3', 'Pillar III: Human Capital', 'HR', 'Operations', 'Weekly', 'STANDARD', 'Supervisor Dalia', 'Manager Omar', 'Nadia Karim',],
+  ['TSK-081', 'Probation Period 3-Month Performance Review Gate', 'pillar-3', 'Pillar III: Human Capital', 'HR', 'HR Dir', 'At 90 Days', 'HIGH', 'Supervisor Sami', 'Manager Omar', 'Nadia Karim',],
+  ['TSK-082', 'Sales Training Academy Negotiation Masterclass', 'pillar-3', 'Pillar III: Human Capital', 'HR', 'Training', 'Bi-Weekly', 'MEDIUM', 'Supervisor Sami', 'Manager Omar', 'Nadia Karim',],
+  ['TSK-083', 'Dubai Tenancy Law & RERA 2024 Legal Refresher Course', 'pillar-3', 'Pillar III: Human Capital', 'HR', 'Legal / HR', 'Monthly', 'HIGH', 'Supervisor Sami', 'Manager Omar', 'Nadia Karim',],
+  ['TSK-084', 'Broker Disciplinary Hearing & Ethics Investigation', 'pillar-3', 'Pillar III: Human Capital', 'HR', 'HR / Legal', '48 Hours', 'CRITICAL', 'Supervisor Dalia', 'Manager Omar', 'Nadia Karim',],
+  ['TSK-085', 'Agent Resignation Offboarding & RERA Card Release', 'pillar-3', 'Pillar III: Human Capital', 'HR', 'HR / DLD', '48 Hours', 'HIGH', 'Supervisor Dalia', 'Manager Omar', 'Nadia Karim',],
+  ['TSK-086', 'Non-Compete & NDA Enforcement Oversight', 'pillar-3', 'Pillar III: Human Capital', 'HR', 'Legal / HR', 'Continuous', 'HIGH', 'Supervisor Dalia', 'Manager Omar', 'Nadia Karim',],
+  ['TSK-087', 'Top Producer Monthly Awards & Recognition Program', 'pillar-3', 'Pillar III: Human Capital', 'HR', 'Culture', 'Monthly', 'STANDARD', 'Supervisor Sami', 'Manager Omar', 'Nadia Karim',],
+  ['TSK-088', 'Employee Grievance Mediation & Resolution', 'pillar-3', 'Pillar III: Human Capital', 'HR', 'HR Dir', '72 Hours', 'HIGH', 'Supervisor Dalia', 'Manager Omar', 'Nadia Karim',],
+  ['TSK-089', 'Agent Phone Log & CRM Activity Audit', 'pillar-3', 'Pillar III: Human Capital', 'HR', 'QA / HR', 'Weekly', 'MEDIUM', 'Supervisor Sami', 'Manager Omar', 'Nadia Karim',],
+  ['TSK-090', 'Broker Desk Assignment & Workspace Allocation', 'pillar-3', 'Pillar III: Human Capital', 'HR', 'Facilities', '24 Hours', 'STANDARD', 'Supervisor Dalia', 'Manager Omar', 'Nadia Karim',],
+  ['TSK-091', 'Emergency Contact & First Aid Warden Certification', 'pillar-3', 'Pillar III: Human Capital', 'HR', 'Operations', 'Bi-Annual', 'STANDARD', 'Supervisor Dalia', 'Manager Omar', 'Nadia Karim',],
+  ['TSK-092', 'Intern & Graduate Real Estate Rotational Program', 'pillar-3', 'Pillar III: Human Capital', 'HR', 'Talent', 'Quarterly', 'STANDARD', 'Supervisor Sami', 'Manager Omar', 'Nadia Karim',],
+  ['TSK-093', 'Exit Interview Analysis & Turnover Mitigation Report', 'pillar-3', 'Pillar III: Human Capital', 'HR', 'HR Dir', 'Monthly', 'MEDIUM', 'Supervisor Dalia', 'Manager Omar', 'Nadia Karim',],
+  ['TSK-094', 'UAE Nationalization (Emiratization) Quota Compliance', 'pillar-3', 'Pillar III: Human Capital', 'HR', 'MOHRE / HR', 'Monthly', 'CRITICAL', 'Supervisor Dalia', 'Manager Omar', 'Nadia Karim',],
+  ['TSK-095', 'Remote Agent Security & VPN Compliance Audit', 'pillar-3', 'Pillar III: Human Capital', 'HR', 'HR / IT', 'Monthly', 'MEDIUM', 'Supervisor Dalia', 'Manager Omar', 'Nadia Karim',],
+  ['TSK-096', 'Language Skills & Multi-Lingual Desk Assignment', 'pillar-3', 'Pillar III: Human Capital', 'HR', 'Sales Ops', 'Onboarding', 'STANDARD', 'Supervisor Sami', 'Manager Omar', 'Nadia Karim',],
+  ['TSK-097', 'Agent Business Card & QR Profile Deployment', 'pillar-3', 'Pillar III: Human Capital', 'HR', 'Marketing', '24 Hours', 'STANDARD', 'Supervisor Dalia', 'Manager Omar', 'Nadia Karim',],
+  ['TSK-098', 'Broker Mental Health & Performance Coaching Session', 'pillar-3', 'Pillar III: Human Capital', 'HR', 'HR', 'Monthly', 'STANDARD', 'Supervisor Sami', 'Manager Omar', 'Nadia Karim',],
+  ['TSK-099', 'Commission Tier Advancement Evaluation', 'pillar-3', 'Pillar III: Human Capital', 'HR', 'Sales / HR', 'Quarterly', 'HIGH', 'Supervisor Sami', 'Manager Omar', 'Nadia Karim',],
+  ['TSK-100', 'Annual HR Policy Handbook Revision & Sign-off', 'pillar-3', 'Pillar III: Human Capital', 'HR', 'HR / MD', 'Annual', 'HIGH', 'Supervisor Dalia', 'Manager Omar', 'Nadia Karim',],
+];
+
+export function buildTaskFromDef(
+  row: [
+    string,
+    string,
+    string,
+    string,
+    TaskNode['category'],
+    string,
+    string,
+    TaskPriority,
+    string,
+    string,
+    string,
+  ],
+  index: number
+): TaskNode {
+  const [code, title, pillarId, pillarName, category, authority, sla, priority, sup, mgr, dir] =
+    row;
+  const reportingChain: TaskReportingChain = {
+    supervisorName: sup,
+    supervisorCode: `SUP-${String((index % 9) + 1).padStart(2, '0')}`,
+    managerName: mgr,
+    managerCode: `MGR-${String((index % 3) + 1).padStart(2, '0')}`,
+    directorName: dir,
+    directorCode: `DIR-${pillarId}`,
+    executiveReviewer: 'Arslan Malik Bashir Ahmad (MD-01)',
+  };
+
+  const deptNum = (index % 12) + 1;
+  const canonicalDept = CORPORATE_DEPARTMENTS_12[deptNum - 1];
+  const subDeptNum = (index % 9) + 1;
+  const squadNum = (index % 12) + 1;
+  const supNum = (index % 12) + 1;
+
+  const lineage: TaskHierarchyLineage = {
+    deptId: canonicalDept?.code || `DEPT-${String(deptNum).padStart(2, '0')}`,
+    deptName: canonicalDept?.name || `Department ${deptNum}`,
+    directorId: `DIR-${String(deptNum).padStart(2, '0')}`,
+    directorName: canonicalDept?.managerAi?.name || dir,
+    subDeptId: `SUB-${String(subDeptNum).padStart(2, '0')}`,
+    subDeptName: `Sub-Department ${subDeptNum}`,
+    managerId: `MGR-${String(subDeptNum).padStart(2, '0')}`,
+    managerName: mgr,
+    squadId: `SQD-${String(squadNum).padStart(2, '0')}`,
+    squadName: `Squad ${squadNum}`,
+    supervisorId: `SUP-${String(supNum).padStart(2, '0')}`,
+    supervisorName: sup,
+    teamId: `TEAM-${String((index % 4) + 1).padStart(2, '0')}`,
+    teamName: `Team ${(index % 4) + 1}`,
+    isUnassignedPool: false,
+  };
+
+  const roleByCat: Record<TaskNode['category'], string> = {
+    REGULATORY: 'L3 Statutory Compliance Supervisor / L2 Conveyancing Broker',
+    FINANCE: 'L2 Treasury & 5% VAT Controller',
+    HR: 'L3 People Operations & Licensing Lead',
+    SALES: 'L2 Certified Luxury Property Broker',
+    MARKETING: 'L3 Digital Syndication & Media Specialist',
+    TECH: 'L3 Core Systems & AI Orchestration Engineer',
+    OPERATIONS: 'L3 Tenancy & PMS Operations Supervisor',
+  };
+  const primaryRole = roleByCat[category] || 'L3 Operational Supervisor';
+
+  const useCase: RUPUseCaseDossier = {
+    useCaseId: `UC-${code}`,
+    primaryActor: primaryRole,
+    executingUser:
+      'Managing Director Arslan Malik Bashir Ahmad (EMP-001) [Sovereign Execution Clearance]',
+    secondaryActors: [
+      {
+        name: authority ? `${authority} REST API` : 'Dubai Land Department (DLD) Gateway',
+        role: 'Statutory Verification & Registry Attestation',
+      },
+      {
+        name: 'UAE Federal Tax Authority (FTA) EmaraTax',
+        role: '5% VAT Audit & TRN Verification',
+      },
+      {
+        name: 'Zoho Books Enterprise API',
+        role: 'Double-entry Ledger & VAT Invoice Reconciliation',
+      },
+    ] as any,
+    preconditions: [
+      'Actor authenticated with requisite RBAC clearance (or Managing Director Sovereign Clearance)',
+      `Entity reference exists in database (Property UID / Client Code / Deal Number for ${title})`,
+    ],
+    trigger: `User dispatches task from Explorer or automated event trigger for ${title}`,
+    mainSuccessScenario: {
+      input: `Input Phase: System prompts actor for parameters (Reference UID, Value AED, Statutory Cert No.)`,
+      processing: `Processing Phase: Core engine executes validation, regulatory checks, and fee/VAT calculation against ${authority || 'RERA/DLD'}`,
+      output: `Output Phase: System generates statutory PDF artifact, Ejari certificate, or cryptographically verified receipt`,
+      persistence: `Persistence Phase: Database record committed, audit ledger logged, and Merit XP incremented`,
+    },
+    postconditions: [
+      'Entity state shifted to next pipeline stage; telemetry emitted to Right Sidebar stream',
+    ],
+    statutoryMandate: authority
+      ? `${authority} Statutory Mandate`
+      : 'DLD Law No. 7 / RERA Regulation No. 26 / FTA VAT Executive Law',
+  };
+
+  const statuses: TaskStatus[] = ['PENDING', 'IN_PROGRESS', 'REVIEW', 'COMPLETED'];
+  const status = statuses[index % statuses.length];
+
+  const actor = 'Managing Director Arslan Malik Bashir Ahmad (EMP-001)';
+  const action = `Execute operational workflow: ${title} under ${authority || 'White Caves SOP'} standards`;
+  const results = `Verified ${code} compliance dossier, authenticated telemetry logs, and ledger updated`;
+
+  // Deterministic Action Verb extraction (TURING-SEPARATION-010)
+  const firstWord = title
+    .split(' ')[0]
+    .toUpperCase()
+    .replace(/[^A-Z]/g, '');
+  const secondWord = title.split(' ')[1]
+    ? title
+        .split(' ')[1]
+        .toUpperCase()
+        .replace(/[^A-Z]/g, '')
+    : 'TASK';
+  const actionVerb = `${firstWord}_${secondWord}`;
+
+  const deptCode = canonicalDept?.code || `DEPT-${String(deptNum).padStart(2, '0')}`;
+  const divisionSlot = (index % 9) + 1;
+  const divisionCode = `${deptCode.replace('DEPT-', 'DIV-')}-${divisionSlot}`;
+  const sourceActorId = 'user-001'; // Sovereign Managing Director / Operator default
+  const targetObjectId =
+    category === 'REGULATORY' ? 'permit-001' : category === 'FINANCE' ? 'invoice-001' : 'prop-001';
+
+  return {
+    _id: `task-${code.toLowerCase()}`,
+    taskCode: code,
+    title,
+    pillarId,
+    pillarName,
+    category,
+    statutoryAuthority: authority,
+    description: `Statutory and operational execution task ${code} for White Caves Real Estate LLC in Dubai. Governed under Bhakti 5-Tier Lineage Protocol.`,
+    priority,
+    status,
+    defaultSla: sla,
+    reportingChain,
+    actor,
+    action,
+    results,
+    actionVerb,
+    sourceActorId,
+    targetObjectId,
+    departmentCode: deptCode,
+    divisionCode,
+    lineage,
+    useCase,
+    dueDate: '2026-11-30',
+    createdAt: '2026-11-01',
+    completionRate:
+      status === 'COMPLETED' ? 100 : status === 'REVIEW' ? 85 : status === 'IN_PROGRESS' ? 45 : 0,
+  };
+}
+
+export function getRawTaskDefinitions(): typeof RAW_TASK_DEFINITIONS {
+  return RAW_TASK_DEFINITIONS;
+}
