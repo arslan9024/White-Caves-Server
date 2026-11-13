@@ -5,6 +5,7 @@
   "main": "server/index.ts",
   "type": "module",
   "scripts": {
+    "ports:check": "npx tsx ../secrets/ports.ts --check",
     "dev": "nodemon",
     "dev:tsx": "tsx watch server/index.ts",
     "start": "tsx server/index.ts",
