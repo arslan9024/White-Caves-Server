@@ -13,12 +13,15 @@ const { mockConnect, mockDisconnect } = vi.hoisted(() => ({
 }));
 
 // Mock PrismaClient before any imports
-vi.mock('@prisma/client', () => ({
-  PrismaClient: vi.fn().mockImplementation(() => ({
-    $connect: mockConnect,
-    $disconnect: mockDisconnect,
-  })),
-}));
+vi.mock('@prisma/client', () => {
+  class MockPrismaClient {
+    $connect = mockConnect;
+    $disconnect = mockDisconnect;
+  }
+  return {
+    PrismaClient: MockPrismaClient,
+  };
+});
 
 // Mock the logger
 vi.mock('./utils/logger.js', () => ({
