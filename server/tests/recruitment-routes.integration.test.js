@@ -1,3 +1,4 @@
+import { describe, it } from 'vitest';
 import express from 'express';
 import recruitmentRouter, {
   __setRecruitmentTestDeps,
@@ -839,4 +840,13 @@ await test('GET /whatsapp/templates/production-validation returns summary', asyn
 
 console.log(`\n✅ ${passedTests}/${totalTests} recruitment route integration tests passed\n`);
 process.env.RECRUITMENT_AUTH_MODE = originalRecruitmentAuthMode;
-process.exit(passedTests === totalTests ? 0 : 1);
+
+describe('Recruitment Routes Integration Runner', () => {
+  it('passes all standalone integration checks', () => {
+    assert(passedTests === totalTests, `${totalTests - passedTests} test(s) failed`);
+  });
+});
+
+if (!process.env.VITEST) {
+  process.exit(passedTests === totalTests ? 0 : 1);
+}

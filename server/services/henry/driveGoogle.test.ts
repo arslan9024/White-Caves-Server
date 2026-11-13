@@ -2,7 +2,18 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Readable } from 'node:stream';
 import { OAuth2Client } from 'google-auth-library';
 const mocks = vi.hoisted(() => ({ get: vi.fn(), list: vi.fn(), about: vi.fn(), drive: vi.fn(), oauth: vi.fn() }));
-vi.mock('googleapis/build/src/apis/drive/index.js', () => ({ drive: mocks.drive, auth: { OAuth2: class { constructor(...args: unknown[]) { mocks.oauth(...args); } } } }));
+vi.mock('googleapis', () => ({
+  google: {
+    drive: mocks.drive,
+    auth: {
+      OAuth2: class {
+        constructor(...args: unknown[]) {
+          mocks.oauth(...args);
+        }
+      },
+    },
+  },
+}));
 import { DriveGoogle, driveConfigured, driveOAuth } from './driveGoogle';
 
 beforeEach(() => {

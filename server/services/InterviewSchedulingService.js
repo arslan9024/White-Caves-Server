@@ -808,8 +808,9 @@ Reply CONFIRM to let us know you're ready!
   static formatDateTime(dateString) {
     const date = new Date(dateString);
     return date.toLocaleDateString('en-US', {
+      timeZone: 'UTC',
       weekday: 'long',
-      month: 'short',
+      month: 'long',
       day: 'numeric',
       hour: 'numeric',
       minute: '2-digit',
@@ -848,7 +849,11 @@ Reply CONFIRM to let us know you're ready!
       return `+${cleaned}`;
     }
 
-    if (cleaned.startsWith('50') || cleaned.startsWith('52') || cleaned.startsWith('55')) {
+    if (cleaned.startsWith('05')) {
+      return `+971${cleaned.substring(1)}`;
+    }
+
+    if (cleaned.startsWith('50') || cleaned.startsWith('52') || cleaned.startsWith('54') || cleaned.startsWith('55') || cleaned.startsWith('56') || cleaned.startsWith('58')) {
       return `+971${cleaned}`;
     }
 

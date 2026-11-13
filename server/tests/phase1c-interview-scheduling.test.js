@@ -14,6 +14,7 @@
  * 10. Edge cases and error handling
  */
 
+import { describe, it, expect } from 'vitest';
 import { InterviewSchedulingService } from '../services/InterviewSchedulingService.js';
 
 console.log('\n' + '='.repeat(70));
@@ -492,3 +493,10 @@ if (failedTests === 0) {
 console.log('='.repeat(70));
 console.log('Phase 1C Part 2 Testing Complete!');
 console.log('='.repeat(70) + '\n');
+
+describe('Interview Scheduling Service (Phase 1C Part 2)', () => {
+  it('passes all 47 scheduling and normalization tests', () => {
+    expect(failedTests).toBe(0);
+    expect(passedTests).toBe(47);
+  });
+});

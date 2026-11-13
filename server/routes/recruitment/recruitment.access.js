@@ -15,8 +15,14 @@ export function requireRecruitmentAccess(level = 'read') {
       return next();
     }
 
-    const headerRole = req.headers['x-user-role'];
-    const userRole = (headerRole || req.user?.role || '').toString().trim().toLowerCase();
+    // Never trust client header if user is verified via JWT/session
+    const userRole = (req.user?.role || (req.user ? '' : req.headers['x-user-role']) || '').toString().trim().toLowerCase();
+
+    if (!req.user && req.headers['x-user-role']) {
+      return res.status(401).json({
+        error: 'Spoofed unauthenticated role headers are rejected',
+      });
+    }
 
     if (!userRole) {
       return res.status(401).json({
