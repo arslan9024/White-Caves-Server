@@ -139,4 +139,18 @@ export const externalModulesService = {
   async getLindaModuleStatus() {
     return requestJson(getLindaBaseUrl(), '/api/linda/status');
   },
+
+  async sendWhatsAppMessage(to: string, message: string, mediaUrl?: string) {
+    return requestJson(getLindaBaseUrl(), '/api/send', {
+      method: 'POST',
+      body: { to, message, mediaUrl },
+    });
+  },
+
+  async broadcastWhatsApp(numbers: string[], message: string) {
+    return requestJson(getLindaBaseUrl(), '/api/broadcast', {
+      method: 'POST',
+      body: { numbers, message },
+    });
+  },
 };
