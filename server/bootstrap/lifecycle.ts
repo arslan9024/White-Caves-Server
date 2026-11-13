@@ -11,6 +11,7 @@ import { startViewingReminderScheduler } from '../services/schedulingService.js'
 import { startRERAExpiryScheduler } from '../services/compliance/reraExpiryScheduler.js';
 import { startAutoRouting } from '../services/ai/leadAutoRouter.js';
 import { schedulerService } from '../services/SchedulerService.js';
+import { startLindaCampaignScheduler } from '../services/whatsapp/lindaCampaignService.js';
 import { RealtimeService } from '../websocket/realtimeService.js';
 import type { ServerRuntime } from './runtime.js';
 import { PREFERRED_PORT, parsePort, listenWithPortFallback } from './listener.js';
@@ -77,6 +78,7 @@ const startServer = async (app: Express, runtime: ServerRuntime) => {
   startRERAExpiryScheduler(); // Phase 3D: RERA BRN expiry checks daily
   startAutoRouting(); // Phase 4A: auto-route hot leads to best agents
   schedulerService.start(); // Wave 12: cron automation engine
+  startLindaCampaignScheduler(); // Linda WhatsApp Campaign & Outreach engine
 
   import('../services/orchestrator/AssistantOrchestrator.js')
     .then(({ assistantOrchestrator }) => {

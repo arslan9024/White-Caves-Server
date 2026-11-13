@@ -8,16 +8,21 @@ import path from 'path';
 import dotenv from 'dotenv';
 
 // Load environment variables as early as possible to prevent import-order issues.
-// Checks secrets/.env first (if present), then .env, then .env.production.
+// Checks root ../secrets/.env first, then secrets/.env, then .env, then .env.production.
 const runtimeEnv = process.env.NODE_ENV;
 const isTestRuntime = runtimeEnv === 'test' || process.env.VITEST === 'true';
 
 if (!isTestRuntime) {
   const customPath = process.env.DOTENV_CONFIG_PATH;
+  const rootSecretsEnv = path.resolve(process.cwd(), '../secrets/.env');
+  const localSecretsEnv = path.resolve(process.cwd(), 'secrets/.env');
+
   if (customPath && fs.existsSync(customPath)) {
     dotenv.config({ path: customPath, quiet: true });
-  } else if (fs.existsSync(path.resolve(process.cwd(), 'secrets/.env'))) {
-    dotenv.config({ path: path.resolve(process.cwd(), 'secrets/.env'), quiet: true });
+  } else if (fs.existsSync(rootSecretsEnv)) {
+    dotenv.config({ path: rootSecretsEnv, quiet: true });
+  } else if (fs.existsSync(localSecretsEnv)) {
+    dotenv.config({ path: localSecretsEnv, quiet: true });
   }
   dotenv.config({ quiet: true });
 }
@@ -94,9 +99,13 @@ if (!process.env.CORS_ORIGIN && IS_PRODUCTION) {
 export const CORS_ORIGINS = (
   process.env.CORS_ORIGIN ||
   [
+    'http://localhost:3000',
+    'http://localhost:3001',
     'http://localhost:5000',
     'http://localhost:5001',
     'http://localhost:5173',
+    'http://127.0.0.1:3000',
+    'http://127.0.0.1:3001',
     'http://127.0.0.1:5000',
     'http://127.0.0.1:5001',
     'http://127.0.0.1:5173',

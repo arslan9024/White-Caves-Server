@@ -11,59 +11,69 @@ import request from 'supertest';
 
 vi.mock('../queue/queue.service.js', () => {
   return {
-    default: vi.fn().mockImplementation(() => ({
-      addTask: vi.fn().mockReturnValue('task-12345'),
-      getTaskStatus: vi.fn().mockImplementation((taskId: string) => {
-        if (taskId === 'task-12345') {
-          return { id: taskId, status: 'completed', attempts: 1 };
-        }
-        return null;
-      }),
-      getStats: vi.fn().mockReturnValue({ pending: 2, processing: 1, completed: 50 }),
-      getMetrics: vi.fn().mockReturnValue({ throughput: 25.4 }),
-      getDeadLetterQueue: vi.fn().mockReturnValue([]),
-      retryFromDLQ: vi.fn().mockResolvedValue(true),
-    })),
+    default: vi.fn(function () {
+      return {
+        addTask: vi.fn().mockReturnValue('task-12345'),
+        getTaskStatus: vi.fn().mockImplementation((taskId: string) => {
+          if (taskId === 'task-12345') {
+            return { id: taskId, status: 'completed', attempts: 1 };
+          }
+          return null;
+        }),
+        getStats: vi.fn().mockReturnValue({ pending: 2, processing: 1, completed: 50 }),
+        getMetrics: vi.fn().mockReturnValue({ throughput: 25.4 }),
+        getDeadLetterQueue: vi.fn().mockReturnValue([]),
+        retryFromDLQ: vi.fn().mockResolvedValue(true),
+      };
+    }),
   };
 });
 
 vi.mock('../analytics/analytics.service.js', () => {
   return {
-    default: vi.fn().mockImplementation(() => ({
-      trackEvent: vi.fn(),
-      getDashboardMetrics: vi.fn().mockReturnValue({ activeUsers: 45, eventsCount: 1200 }),
-      getUserAnalytics: vi.fn().mockReturnValue({ userId: 'usr-101', totalSessions: 12 }),
-      getUserBehaviorPatterns: vi.fn().mockReturnValue({ frequentPages: ['/properties', '/dashboard'] }),
-    })),
+    default: vi.fn(function () {
+      return {
+        trackEvent: vi.fn(),
+        getDashboardMetrics: vi.fn().mockReturnValue({ activeUsers: 45, eventsCount: 1200 }),
+        getUserAnalytics: vi.fn().mockReturnValue({ userId: 'usr-101', totalSessions: 12 }),
+        getUserBehaviorPatterns: vi.fn().mockReturnValue({ frequentPages: ['/properties', '/dashboard'] }),
+      };
+    }),
   };
 });
 
 vi.mock('../notifications/notification.service.js', () => {
   return {
-    default: vi.fn().mockImplementation(() => ({
-      sendNotification: vi.fn().mockResolvedValue({ id: 'notif-1', status: 'sent' }),
-      getUserNotifications: vi.fn().mockReturnValue([{ id: 'notif-1', title: 'New Offer Received' }]),
-    })),
+    default: vi.fn(function () {
+      return {
+        sendNotification: vi.fn().mockResolvedValue({ id: 'notif-1', status: 'sent' }),
+        getUserNotifications: vi.fn().mockReturnValue([{ id: 'notif-1', title: 'New Offer Received' }]),
+      };
+    }),
   };
 });
 
 vi.mock('../security/encryption.service.js', () => {
   return {
-    default: vi.fn().mockImplementation(() => ({
-      encrypt: vi.fn().mockReturnValue({ iv: 'iv123', encryptedData: 'enc_blob_abc' }),
-      decrypt: vi.fn().mockReturnValue('decrypted_payload_cleartext'),
-    })),
+    default: vi.fn(function () {
+      return {
+        encrypt: vi.fn().mockReturnValue({ iv: 'iv123', encryptedData: 'enc_blob_abc' }),
+        decrypt: vi.fn().mockReturnValue('decrypted_payload_cleartext'),
+      };
+    }),
   };
 });
 
 vi.mock('../presence/presence.service.js', () => {
   return {
-    default: vi.fn().mockImplementation(() => ({
-      setUserOnline: vi.fn(),
-      getOnlineUsers: vi.fn().mockReturnValue([]),
-      getPresenceAnalytics: vi.fn().mockReturnValue({ activeSessions: 10 }),
-      getHealth: vi.fn().mockReturnValue({ status: 'healthy' }),
-    })),
+    default: vi.fn(function () {
+      return {
+        setUserOnline: vi.fn(),
+        getOnlineUsers: vi.fn().mockReturnValue([]),
+        getPresenceAnalytics: vi.fn().mockReturnValue({ activeSessions: 10 }),
+        getHealth: vi.fn().mockReturnValue({ status: 'healthy' }),
+      };
+    }),
   };
 });
 
