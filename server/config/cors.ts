@@ -88,7 +88,12 @@ function isLocalDevOrigin(origin: string): boolean {
 const ALLOWED_STATIC_ORIGINS: readonly string[] = [
   'https://whitecaves.com',
   'https://www.whitecaves.com',
+  'https://whitecaves.ae',
+  'https://www.whitecaves.ae',
+  'https://white-caves-web.vercel.app',
   'https://white-caves.vercel.app',
+  'https://app.whitecaves.com',
+  'https://portal.whitecaves.ae',
   'https://api.whitecaves.com',
 ];
 
