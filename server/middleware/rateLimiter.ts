@@ -16,13 +16,34 @@ export class TieredRateLimiter {
   }
 }
 
-const strictTierLimiter = new TieredRateLimiter();
-
-export function strictLimiter(req: any, res: any, next: any): void {
-  const key = req.ip || req.headers?.['x-forwarded-for'] || 'unknown';
-  if (!strictTierLimiter.allow(String(key), 30, 60_000)) {
-    res.status(429).json({ error: 'Too many requests' });
-    return;
-  }
-  next();
+export function createLimiter(limit: number, windowMs = 60_000) {
+  const limiter = new TieredRateLimiter();
+  return (req: any, res: any, next: any): void => {
+    const key = req.ip || req.headers?.['x-forwarded-for'] || 'unknown';
+    if (!limiter.allow(String(key), limit, windowMs)) {
+      res.status(429).json({ error: 'Too many requests' });
+      return;
+    }
+    next();
+  };
 }
+
+export const strictLimiter = createLimiter(30, 60_000);
+export const apiLimiter = createLimiter(120, 60_000);
+export const authLimiter = createLimiter(15, 60_000);
+export const firebaseSyncLimiter = createLimiter(30, 60_000);
+export const registerLimiter = createLimiter(10, 60_000);
+export const passwordLimiter = createLimiter(10, 60_000);
+export const contactLimiter = createLimiter(20, 60_000);
+
+export default {
+  TieredRateLimiter,
+  createLimiter,
+  strictLimiter,
+  apiLimiter,
+  authLimiter,
+  firebaseSyncLimiter,
+  registerLimiter,
+  passwordLimiter,
+  contactLimiter,
+};
