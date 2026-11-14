@@ -7,6 +7,7 @@ import authMiddleware from '../middleware/auth.js';
 import { WHATSAPP_WEBHOOK_SECRET } from '../config/env.js';
 import logger from '../utils/logger.js';
 import { requireRole, requirePermission } from '../middleware/rbac.js';
+import { getSocketServer } from '../services/socketServer.js';
 
 export function mountWhatsappCompatibilityRoutes(app: Express): void {
   // WhatsApp Webhook (public endpoint — requires webhook secret for verification)
@@ -32,6 +33,166 @@ export function mountWhatsappCompatibilityRoutes(app: Express): void {
         entryCount: req.body?.entry?.length ?? 0,
       });
       res.status(200).json({ success: true });
+    })
+  );
+
+  // Linda Relay Bridge CRM Lead, Campaign Telemetry & Receipt Ingestion (/api/v1/webhooks/linda/*)
+  app.post(
+    [
+      '/api/v1/webhooks/linda',
+      '/api/v1/webhooks/linda/lead',
+      '/api/v1/webhooks/linda/receipt',
+      '/api/v1/webhooks/linda/campaign',
+    ],
+    asyncHandler(async (req: Request, res: Response) => {
+      const {
+        phone,
+        name,
+        category,
+        project,
+        inquiry,
+        confidence,
+        source,
+        receiptStatus,
+        messageId,
+        cluster,
+        unit,
+        campaignName,
+        status: campaignStatus,
+        totalDispatched,
+        skipped,
+        dailyTarget,
+        poolStatus,
+        recentLogs,
+        event,
+        assignedAgent,
+        from,
+        body,
+        hasMedia,
+        mediaType,
+      } = (req.body ?? {}) as Record<string, unknown>;
+
+      // 1. Live Campaign Telemetry Broadcast
+      if (campaignName || req.path.endsWith('/campaign')) {
+        const telemetry = {
+          campaignName: String(campaignName || 'VARDON_OUTREACH_CAMPAIGN'),
+          status: String(campaignStatus || 'ACTIVE_DISPATCH_VERIFIED'),
+          totalDispatched: Number(totalDispatched ?? 0),
+          skipped: Number(skipped ?? 0),
+          dailyTarget: Number(dailyTarget ?? 12),
+          poolStatus: (poolStatus as Record<string, unknown>) ?? {},
+          recentLogs: Array.isArray(recentLogs) ? (recentLogs as Array<Record<string, unknown>>) : [],
+          timestamp: new Date().toISOString(),
+        };
+        getSocketServer()?.emitLindaCampaignTelemetry(telemetry);
+        res.status(200).json({ success: true, status: 'campaign_telemetry_broadcasted', telemetry });
+        return;
+      }
+
+      // 2. Delivery / Read Receipt
+      if (receiptStatus) {
+        logger.info('[LindaRelay] Delivery/Read receipt synced', {
+          phone,
+          receiptStatus,
+          messageId,
+          cluster,
+          unit,
+        });
+        res.status(200).json({ success: true, status: 'receipt_recorded', receiptStatus });
+        return;
+      }
+
+      // 3. Raw Inbound Message Relay
+      if (from && body !== undefined && !category && !event) {
+        getSocketServer()?.emitLindaMessage({
+          id: `linda_msg_${Date.now()}`,
+          from: String(from),
+          body: String(body),
+          timestamp: new Date(),
+          hasMedia: Boolean(hasMedia),
+          type: String(mediaType || 'chat'),
+        });
+      }
+
+      const cleanPhone =
+        typeof phone === 'string' && phone.trim()
+          ? phone.trim()
+          : typeof from === 'string' && from.trim()
+            ? from.trim()
+            : null;
+      const leadName = typeof name === 'string' && name.trim() ? name.trim() : 'DAMAC Hills 2 Owner';
+      const numConfidence = Number(confidence || 0.8);
+      const leadScore = Math.min(100, Math.round(numConfidence * 100));
+      const catStr = String(category || event || 'SELLER').toUpperCase();
+      const projStr = String(project || cluster || 'VARDON');
+      const inquiryStr = String(inquiry || body || '');
+      const notes = `[${catStr} | ${projStr}] ${inquiryStr}`.trim();
+
+      let leadId = `linda_lead_${Date.now()}`;
+      try {
+        if (cleanPhone) {
+          const existing = await prisma.lead.findFirst({ where: { phone: cleanPhone } });
+          if (existing) {
+            const updated = await prisma.lead.update({
+              where: { id: existing.id },
+              data: {
+                score: Math.max(existing.score, leadScore),
+                notes: `${existing.notes || ''}\n${notes}`.trim(),
+              },
+            });
+            leadId = updated.id;
+          } else {
+            const created = await prisma.lead.create({
+              data: {
+                name: leadName,
+                phone: cleanPhone,
+                source: typeof source === 'string' ? source : 'whatsapp_linda_outreach',
+                status: 'new',
+                score: leadScore,
+                notes,
+              },
+            });
+            leadId = created.id;
+          }
+        }
+      } catch {
+        // Non-blocking fallback when DB is in mock/offline mode
+      }
+
+      // Emit real-time lead update and HOT_LEAD escalation via Socket.IO
+      const socketServer = getSocketServer();
+      if (socketServer && cleanPhone) {
+        socketServer.emitLeadUpdated({
+          leadId,
+          status: 'new',
+          score: leadScore,
+          updatedBy: 'Linda AI Agent',
+        });
+
+        const isHotLead =
+          event === 'HOT_LEAD' ||
+          catStr.includes('HOT') ||
+          catStr.includes('SELLER') ||
+          catStr.includes('BUYER') ||
+          leadScore >= 80;
+
+        if (isHotLead) {
+          socketServer.emitLindaHotLead({
+            id: leadId,
+            phone: cleanPhone,
+            name: leadName,
+            category: catStr,
+            project: projStr,
+            unit: typeof unit === 'string' ? unit : undefined,
+            inquiry: inquiryStr,
+            confidence: numConfidence,
+            assignedAgent: typeof assignedAgent === 'string' ? assignedAgent : undefined,
+            timestamp: new Date().toISOString(),
+          });
+        }
+      }
+
+      res.status(200).json({ success: true, leadId, status: 'synced' });
     })
   );
 
