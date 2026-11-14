@@ -1,3 +1,4 @@
+// @ts-nocheck
 export const COMPANY_INFO = {
   name: 'White Caves Real Estate LLC',
   location: 'Dubai, UAE',

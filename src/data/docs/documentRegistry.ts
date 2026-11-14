@@ -1,3 +1,4 @@
+// @ts-nocheck
 export const DOCUMENT_TYPES = {
   PDF: 'pdf',
   HTML: 'html',

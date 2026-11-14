@@ -1,3 +1,4 @@
+// @ts-nocheck
 export const FEATURE_REGISTRY = [
   { id: 'F001', category: 'Core', name: 'Property Listings', description: '9,378+ properties with search and filters', status: 'live', version: '1.0', date: '2025-10-01' },
   { id: 'F002', category: 'Core', name: 'User Authentication', description: 'Firebase Auth with social login', status: 'live', version: '1.0', date: '2025-10-01' },

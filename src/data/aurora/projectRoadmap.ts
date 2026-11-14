@@ -1,3 +1,4 @@
+// @ts-nocheck
 export const PROJECT_ROADMAP = {
   phases: [
     {

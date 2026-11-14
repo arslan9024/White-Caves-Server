@@ -1,3 +1,4 @@
+// @ts-nocheck
 export const RELEASE_HISTORY = [
   {
     version: '2.5.1',

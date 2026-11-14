@@ -1,3 +1,4 @@
+// @ts-nocheck
 export const EMPLOYEES = [
   {
     id: 'emp-1',

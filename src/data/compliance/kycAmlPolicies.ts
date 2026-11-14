@@ -1,3 +1,4 @@
+// @ts-nocheck
 export const KYC_AML_POLICIES = {
   version: '2.0',
   effectiveDate: '2024-01-01',

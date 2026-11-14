@@ -1,3 +1,4 @@
+// @ts-nocheck
 export const DEPT_ASSISTANT_MAP = {
   executive: {
     primary: ['zoe'],

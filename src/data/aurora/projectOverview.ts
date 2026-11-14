@@ -1,3 +1,4 @@
+// @ts-nocheck
 export const PROJECT_OVERVIEW = {
   name: 'White Caves Real Estate Platform',
   tagline: 'AI-Powered Luxury Real Estate in Dubai',

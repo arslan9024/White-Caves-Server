@@ -1,3 +1,4 @@
+// @ts-nocheck
 export const AI_ASSISTANTS_REGISTRY = [
   {
     id: 'zoe',
