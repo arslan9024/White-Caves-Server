@@ -81,4 +81,31 @@ router.get('/master-posture', requirePermission('view_whatsapp_conversations'), 
 router.post('/sessions/:id/ping', requirePermission('view_whatsapp_conversations'), pingLindaSession);
 router.patch('/campaigns/:id/status', requirePermission('view_whatsapp_conversations'), toggleLindaCampaignStatus);
 
+// Live Pool Warmup Telemetry & Instant Batch Dispatch (bridged to whatsapp-bot-linda)
+const LINDA_BOT_URL = process.env.LINDA_BOT_URL || 'http://localhost:5000';
+
+router.get('/pool/telemetry', requirePermission('view_whatsapp_conversations'), async (_req, res) => {
+  try {
+    const r = await fetch(`${LINDA_BOT_URL}/api/linda/pool/telemetry`);
+    const json = await r.json();
+    res.status(r.status).json(json);
+  } catch (err: unknown) {
+    res.status(502).json({ success: false, error: err instanceof Error ? err.message : 'Linda bot unreachable' });
+  }
+});
+
+router.post('/campaign/dispatch-now', requirePermission('reply_whatsapp_conversations'), async (req, res) => {
+  try {
+    const r = await fetch(`${LINDA_BOT_URL}/api/linda/campaign/dispatch-now`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(req.body || {}),
+    });
+    const json = await r.json();
+    res.status(r.status).json(json);
+  } catch (err: unknown) {
+    res.status(502).json({ success: false, error: err instanceof Error ? err.message : 'Linda bot unreachable' });
+  }
+});
+
 export default router;
