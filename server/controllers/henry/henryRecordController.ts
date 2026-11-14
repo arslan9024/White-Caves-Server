@@ -237,7 +237,13 @@ export const signRecord = async (req: AuthRequest, res: Response) => {
       },
     });
 
-    res.json({ success: true, data: updated });
+    const xpReward = {
+      xpDelta: 500,
+      eventTrigger: 'STATUTORY_GATE_CLEARANCE',
+      citationReference: `Henry Document Signed (${record.templateKey})`,
+    };
+
+    res.json({ success: true, data: updated, xpReward });
   } catch (err) {
     res
       .status(500)
