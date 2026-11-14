@@ -89,6 +89,32 @@ export interface LindaMessagePayload {
   type: string;
 }
 
+/** Fired when Vardon / Linda campaign batch progress updates in real time */
+export interface LindaCampaignTelemetryPayload {
+  campaignName: string;
+  status: string;
+  totalDispatched: number;
+  skipped: number;
+  dailyTarget: number;
+  poolStatus?: Record<string, unknown>;
+  recentLogs?: Array<Record<string, unknown>>;
+  timestamp: Date | string;
+}
+
+/** Fired when Linda detects a high-intent HOT_LEAD (Seller / Cash Buyer / Owner) */
+export interface LindaHotLeadEscalationPayload {
+  id: string;
+  phone: string;
+  name: string;
+  category: string;
+  project: string;
+  unit?: string;
+  inquiry: string;
+  confidence: number;
+  assignedAgent?: string;
+  timestamp: Date | string;
+}
+
 /** CRM notification pushed to authenticated users */
 export interface CrmNotificationPayload {
   id: string;
@@ -254,6 +280,16 @@ export class SocketServer {
   /** Broadcast to all CRM users: new WhatsApp message via Linda channel */
   emitLindaMessage(payload: LindaMessagePayload): void {
     this.io.to('crm').emit('whatsapp:linda:message', payload);
+  }
+
+  /** Broadcast to all CRM users: live Vardon / Linda campaign batch progress */
+  emitLindaCampaignTelemetry(payload: LindaCampaignTelemetryPayload): void {
+    this.io.to('crm').emit('whatsapp:linda:campaign', payload);
+  }
+
+  /** Broadcast to all CRM users: real-time HOT_LEAD escalation alert */
+  emitLindaHotLead(payload: LindaHotLeadEscalationPayload): void {
+    this.io.to('crm').emit('whatsapp:linda:hot_lead', payload);
   }
 
   // ─── CRM Emitters ─────────────────────────────────────────────────────────
