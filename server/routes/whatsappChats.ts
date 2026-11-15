@@ -77,7 +77,8 @@ router.get('/', async (req: Request, res: Response) => {
  * Proxies live message history from whatsapp-bot-linda.
  */
 router.get('/:jid/messages', async (req: Request, res: Response) => {
-  const jid = decodeURIComponent(req.params.jid);
+  const jidParam = req.params.jid as string;
+  const jid = decodeURIComponent(jidParam);
   try {
     const botRes = await fetch(`${LINDA_BOT_URL}/api/whatsapp/chats/${encodeURIComponent(jid)}/messages`, {
       signal: AbortSignal.timeout(1500),
@@ -103,7 +104,8 @@ router.get('/:jid/messages', async (req: Request, res: Response) => {
  * Proxies outbound message through whatsapp-bot-linda's active Primary Master socket.
  */
 router.post('/:jid/send', async (req: Request, res: Response) => {
-  const jid = decodeURIComponent(req.params.jid);
+  const jidParam = req.params.jid as string;
+  const jid = decodeURIComponent(jidParam);
   const { text, mediaType } = req.body as { text?: string; mediaType?: string };
   if (!text || !text.trim()) {
     res.status(400).json({ success: false, message: 'Message text is required' });
@@ -157,7 +159,8 @@ router.post('/:jid/send', async (req: Request, res: Response) => {
  * Workflow 1: Auto-qualify inbound lead & match Dubai Bayut/Inventory units.
  */
 router.post('/:jid/qualify', (req: Request, res: Response) => {
-  const jid = decodeURIComponent(req.params.jid);
+  const jidParam = req.params.jid as string;
+  const jid = decodeURIComponent(jidParam);
   const { cluster = 'Dubai Marina', budgetAed = 3500000, intent = 'BUY' } = req.body as {
     cluster?: string;
     budgetAed?: number;
@@ -178,7 +181,8 @@ router.post('/:jid/qualify', (req: Request, res: Response) => {
  * Workflow 2: 1-click Viewing Scheduler + Calendar sync.
  */
 router.post('/:jid/schedule-viewing', (req: Request, res: Response) => {
-  const jid = decodeURIComponent(req.params.jid);
+  const jidParam = req.params.jid as string;
+  const jid = decodeURIComponent(jidParam);
   const { unitId = 'WC-INV-204', slotIso = new Date(Date.now() + 86400000).toISOString() } = req.body as {
     unitId?: string;
     slotIso?: string;
@@ -200,7 +204,8 @@ router.post('/:jid/schedule-viewing', (req: Request, res: Response) => {
  * Workflow 3: 1-click RERA Form A/B & Ejari document intake (Henry Google Drive + Browser OCR).
  */
 router.post('/:jid/document-intake', (req: Request, res: Response) => {
-  const jid = decodeURIComponent(req.params.jid);
+  const jidParam = req.params.jid as string;
+  const jid = decodeURIComponent(jidParam);
   const { docType = 'RERA_FORM_A', ocrText = '' } = req.body as {
     docType?: 'RERA_FORM_A' | 'RERA_FORM_B' | 'EJARI';
     ocrText?: string;
