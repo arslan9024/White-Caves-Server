@@ -10,6 +10,9 @@ import {
 } from '../../services/nadia/handoffManager.js';
 import { getMetaClient } from './metaWebhookCommon.js';
 import { generateBotReply } from './metaWebhookAutoResponder.js';
+import { createLogger } from '../../utils/logger.js';
+
+const log = createLogger('metaWebhookMessageHandler');
 
 export async function handleIncomingMessage(
   message: { from: string },
@@ -20,7 +23,7 @@ export async function handleIncomingMessage(
     const msg = message as any;
     const customerPhone = normalizePhone(msg.from) || msg.from;
     if (!customerPhone) {
-      console.warn('[Meta Webhook] Ignoring inbound message with missing sender phone');
+      log.warn('[Meta Webhook] Ignoring inbound message with missing sender phone');
       return;
     }
 
@@ -62,7 +65,7 @@ export async function handleIncomingMessage(
       (msg.id as string | undefined) ||
       `meta-${customerPhone}-${messageType}-${String(msg.timestamp || 'na')}-${contentHash}`;
 
-    console.log(`[Meta Webhook] Message from ${customerPhone}: ${content.substring(0, 80)}`);
+    log.info(`[Meta Webhook] Message from ${customerPhone}: ${content.substring(0, 80)}`);
 
     const existingMessage = await prisma.nadiaMessage.findFirst({
       where: { waMessageId },
@@ -70,7 +73,7 @@ export async function handleIncomingMessage(
     });
 
     if (existingMessage) {
-      console.log(`[Meta Webhook] Duplicate message ignored: ${waMessageId}`);
+      log.info(`[Meta Webhook] Duplicate message ignored: ${waMessageId}`);
       return;
     }
 
@@ -83,7 +86,7 @@ export async function handleIncomingMessage(
           'You have opted out of WhatsApp messages. Reply START to opt back in.'
         );
       } catch (err) {
-        console.error('[Meta Webhook] Failed to send opt-out confirmation message:', err);
+        log.error('[Meta Webhook] Failed to send opt-out confirmation message:', err);
       }
       return;
     } else if (trimmed === 'START') {
@@ -94,7 +97,7 @@ export async function handleIncomingMessage(
           'You have opted back in to WhatsApp messages.'
         );
       } catch (err) {
-        console.error('[Meta Webhook] Failed to send opt-in confirmation message:', err);
+        log.error('[Meta Webhook] Failed to send opt-in confirmation message:', err);
       }
       return;
     }
@@ -112,7 +115,7 @@ export async function handleIncomingMessage(
           status: 'active',
         },
       });
-      console.log(`[Meta Webhook] New conversation created: ${conversation.id}`);
+      log.info(`[Meta Webhook] New conversation created: ${conversation.id}`);
     }
 
     const existingLead = await prisma.lead.findFirst({
@@ -197,7 +200,7 @@ export async function handleIncomingMessage(
     } as any);
 
     if (conversation.status === 'assigned_to_agent') {
-      console.log(`[Meta Webhook] Conversation ${conversation.id} is with an agent. Routing message to human broker.`);
+      log.info(`[Meta Webhook] Conversation ${conversation.id} is with an agent. Routing message to human broker.`);
       await prisma.nadiaConversation.update({
         where: { id: conversation.id },
         data: { updatedAt: new Date() },
@@ -244,7 +247,7 @@ export async function handleIncomingMessage(
             timestamp: new Date(),
           },
         })
-        .catch(err => console.error(err));
+        .catch(err => log.error(err));
 
       getSocketServer()?.emitConversationUpdated({
         conversationId: conversation.id,
@@ -282,7 +285,7 @@ export async function handleIncomingMessage(
             timestamp: new Date(),
           },
         })
-        .catch(err => console.error(err));
+        .catch(err => log.error(err));
     }
 
     await prisma.nadiaConversation.update({
@@ -290,7 +293,7 @@ export async function handleIncomingMessage(
       data: { updatedAt: new Date() },
     });
   } catch (error) {
-    console.error('[Meta Webhook] Error handling message:', error);
+    log.error('[Meta Webhook] Error handling message:', error);
   }
 }
 
@@ -300,11 +303,11 @@ export async function handleStatusUpdate(status: { id?: string; status?: string 
     const newStatus = status.status;
 
     if (!waMessageId || !newStatus) {
-      console.warn('[Meta Webhook] Ignoring malformed status payload');
+      log.warn('[Meta Webhook] Ignoring malformed status payload');
       return;
     }
 
-    console.log(`[Meta Webhook] Status update: ${waMessageId} → ${newStatus}`);
+    log.info(`[Meta Webhook] Status update: ${waMessageId} → ${newStatus}`);
 
     const existing = await prisma.nadiaMessage.findFirst({
       where: { waMessageId },
@@ -312,7 +315,7 @@ export async function handleStatusUpdate(status: { id?: string; status?: string 
 
     if (existing) {
       if (existing.status === newStatus) {
-        console.log(`[Meta Webhook] Duplicate status ignored: ${waMessageId} already ${newStatus}`);
+        log.info(`[Meta Webhook] Duplicate status ignored: ${waMessageId} already ${newStatus}`);
         return;
       }
 
@@ -324,7 +327,7 @@ export async function handleStatusUpdate(status: { id?: string; status?: string 
 
     const st = status as any;
     if (newStatus === 'failed' && st.errors?.length) {
-      console.error(`[Meta Webhook] Message ${waMessageId} failed:`, st.errors);
+      log.error(`[Meta Webhook] Message ${waMessageId} failed:`, st.errors);
     }
 
     getSocketServer()?.emitMetaStatus({
@@ -336,7 +339,7 @@ export async function handleStatusUpdate(status: { id?: string; status?: string 
       errors: st.errors,
     });
   } catch (error) {
-    console.error('[Meta Webhook] Error handling status:', error);
+    log.error('[Meta Webhook] Error handling status:', error);
   }
 }
 

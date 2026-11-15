@@ -10,6 +10,9 @@ import { sanitizeString } from '../../utils/sanitize.js';
 import { validate, rules, validateIdParam } from '../../utils/validate.js';
 import { getSocketServer } from '../../services/socketServer.js';
 import { notificationService } from '../../services/NotificationService.js';
+import { createLogger } from '../../utils/logger.js';
+
+const log = createLogger('leadCrudController');
 import { invalidateLeadCache } from '../../services/cacheInvalidation.js';
 import { triggerLeadRescore } from '../../services/ai/leadAutoRescore.js';
 import {
@@ -96,9 +99,9 @@ export async function createLead(req: RouteRequest, res: Response): Promise<void
         html: template.html,
         text: template.text,
         tags: [{ name: 'type', value: 'lead_assigned' }],
-      }).catch(err => console.error('[email] leadAssigned send failed:', err));
+      }).catch(err => log.error('[email] leadAssigned send failed:', err));
     } catch (err) {
-      console.error('[email] leadAssigned import failed:', err);
+      log.error('[email] leadAssigned import failed:', err);
     }
   }
 
@@ -221,7 +224,7 @@ export async function updateLead(req: RouteRequest, res: Response): Promise<void
       updatedBy: req.user?.id,
     });
   } catch (err) {
-    console.error('Socket emit lead:updated failed:', err);
+    log.error('Socket emit lead:updated failed:', err);
   }
 
   triggerLeadRescore(lead.id, statusChanged ? 'lead_status_changed' : 'lead_updated');

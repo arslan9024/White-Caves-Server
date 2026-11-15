@@ -6,6 +6,9 @@ import {
 } from '../../services/whatsapp/linda-core/bridge/shadowParityReporter.js';
 import { checkPhoneSavedInGoraha } from '../../services/whatsapp/gorahaContactCheckService.js';
 import { applyTemplate, getOrInitLindaRuntime } from './lindaCommon.js';
+import { createLogger } from '../../utils/logger.js';
+
+const log = createLogger('lindaMessageController');
 
 export const sendMessage = async (req: Request, res: Response) => {
   try {
@@ -97,7 +100,7 @@ export const broadcastMessages = async (req: Request, res: Response) => {
       .broadcast({ phoneNumbers: cleanNumbers, message: broadcastMessage })
       .then(results => {
         const failed = results.filter(r => r.error).length;
-        console.warn(
+        log.warn(
           `[Linda] Broadcast complete: ${results.length - failed} sent, ${failed} failed`
         );
         getSocketServer()?.emitLindaMessage({
@@ -114,7 +117,7 @@ export const broadcastMessages = async (req: Request, res: Response) => {
         }
       })
       .catch(err => {
-        console.error('[Linda] Broadcast error:', err);
+        log.error('[Linda] Broadcast error:', err);
       });
   } catch (err) {
     res
