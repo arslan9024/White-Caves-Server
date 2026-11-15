@@ -11,6 +11,7 @@ import { Router, Request, Response } from 'express';
 import os from 'os';
 import { prisma } from '../database.js';
 import { logger } from '../utils/logger.js';
+import { requireInternalToken } from '../middleware/internalAuth.js';
 
 const router = Router();
 
@@ -171,6 +172,10 @@ router.get('/health', (_req: Request, res: Response) => {
     zeroBacklogGate: 'VERIFIED',
     accelerationGain: '300%',
   });
+});
+
+router.post('/internal/ping', requireInternalToken, (_req: Request, res: Response) => {
+  res.status(200).json({ ok: true, service: 'aegis-internal' });
 });
 
 export default router;

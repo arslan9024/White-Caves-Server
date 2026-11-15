@@ -1,5 +1,6 @@
 // @ts-nocheck
 import express from 'express';
+import { createDealAuditEntry } from '../utils/dealAuditLedger.js';
 import TenancyDeal from '../models/TenancyDeal.js';
 import SalesDeal from '../models/SalesDeal.js';
 import DemoData from '../models/DemoData.js';

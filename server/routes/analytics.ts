@@ -23,8 +23,10 @@ import {
 } from '../services/ai/marketAnalyst.js';
 import { logger } from '../utils/logger.js';
 import { prisma } from '../database.js';
+import { TtlCache } from '../utils/ttlCache.js';
 
 const router = Router();
+const overviewCache = new TtlCache<Awaited<ReturnType<typeof getMarketOverview>>>(60_000);
 
 // ── Root Alias ───────────────────────────────────────────────────────────
 router.get(['/', ''], (_req: Request, res: Response) => {
@@ -39,7 +41,11 @@ router.get(
   asyncHandler(async (_req: Request, res: Response) => {
     logger.info('[Analytics] Market overview requested');
 
-    const overview = await getMarketOverview();
+    const cached = overviewCache.get('overview');
+    const overview = cached ?? (await getMarketOverview());
+    if (!cached) {
+      overviewCache.set('overview', overview);
+    }
 
     res.status(200).json({
       success: true,
