@@ -1,5 +1,8 @@
 import { Request, Response } from 'express';
+import { createLogger } from '../../utils/logger.js';
 import { WebhookEvent } from '../../services/whatsapp/metaAPI.js';
+
+const log = createLogger('MetaWebhook');
 import { verifyWebhookSignature } from '../../services/whatsapp/whatsappUtils.js';
 import { getMetaClient } from './metaWebhookCommon.js';
 import {
@@ -13,7 +16,7 @@ export const verifyWebhookHandler = (req: Request, res: Response) => {
     const challenge = req.query['hub.challenge'] as string;
     const verifyToken = req.query['hub.verify_token'] as string;
 
-    console.log('[Meta Webhook] Verification request:', { mode, verifyToken: '***' });
+    log.info('Verification request:', { mode, verifyToken: '***' });
 
     const meta = getMetaClient();
     const result = meta.verifyWebhook(mode, challenge, verifyToken);
@@ -21,16 +24,16 @@ export const verifyWebhookHandler = (req: Request, res: Response) => {
     if (result) {
       res.set('Content-Type', 'text/plain');
       res.send(result);
-      console.log('[Meta Webhook] Verification successful');
+      log.info('Verification successful');
     } else {
-      console.warn('[Meta Webhook] Verification failed - invalid token or mode');
+      log.warn('Verification failed - invalid token or mode');
       res.status(403).json({
         success: false,
         error: 'Verification failed',
       });
     }
   } catch (error) {
-    console.error('[Meta Webhook] Verification error:', error);
+    log.error('Verification error:', error);
     res.status(500).json({
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error',
@@ -44,33 +47,33 @@ export const inboundWebhookHandler = async (req: Request, res: Response) => {
     if (appSecret) {
       const signature = req.headers['x-hub-signature-256'] as string | undefined;
       if (!signature) {
-        console.warn('[Meta Webhook] Missing x-hub-signature-256 header — rejecting');
+        log.warn('Missing x-hub-signature-256 header — rejecting');
         res.status(403).json({ success: false, error: 'Missing signature header' });
         return;
       }
 
       const rawBody = (req as Request & { rawBody?: string }).rawBody;
       if (!rawBody) {
-        console.warn('[Meta Webhook] Missing rawBody for signature verification — rejecting');
+        log.warn('Missing rawBody for signature verification — rejecting');
         res.status(500).json({ success: false, error: 'Webhook raw body unavailable' });
         return;
       }
 
       if (!verifyWebhookSignature(rawBody, signature, appSecret)) {
-        console.warn('[Meta Webhook] Invalid signature — rejecting');
+        log.warn('Invalid signature — rejecting');
         res.status(403).json({ success: false, error: 'Invalid signature' });
         return;
       }
     }
 
-    console.log('[Meta Webhook] Incoming webhook event');
+    log.info('Incoming webhook event');
     res.json({ success: true });
 
     const meta = getMetaClient();
     const event: WebhookEvent = meta.parseWebhookEvent(req.body);
 
     if (event.entry[0]?.changes[0]?.value?.messaging_product !== 'whatsapp') {
-      console.log('[Meta Webhook] Ignoring non-WhatsApp event');
+      log.info('Ignoring non-WhatsApp event');
       return;
     }
 
@@ -86,7 +89,7 @@ export const inboundWebhookHandler = async (req: Request, res: Response) => {
               value.contacts?.[0]?.profile?.name;
             processingTasks.push(
               handleIncomingMessage(message, value.metadata?.phone_number_id || '', contactName).catch(
-                err => console.error(err)
+                err => log.error('Webhook processing error', err)
               )
             );
           }
@@ -94,13 +97,13 @@ export const inboundWebhookHandler = async (req: Request, res: Response) => {
 
         if (value.statuses) {
           for (const status of value.statuses) {
-            processingTasks.push(handleStatusUpdate(status).catch(err => console.error(err)));
+            processingTasks.push(handleStatusUpdate(status).catch(err => log.error('Webhook processing error', err)));
           }
         }
       }
     }
   } catch (error) {
-    console.error('[Meta Webhook] Error processing event:', error);
+    log.error('Error processing event:', error);
     res.json({ success: false, error: error instanceof Error ? error.message : 'Unknown error' });
   }
 };

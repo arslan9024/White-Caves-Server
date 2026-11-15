@@ -304,4 +304,63 @@ describe('server/utils/logger', () => {
       expect(output).toContain('[Server]');
     });
   });
+
+  // ─── child(), time(), http(), redaction ──────────────────────────
+  describe('child(), time(), http(), and redaction', () => {
+    it('child() creates a sub-scoped logger', async () => {
+      process.env.LOG_LEVEL = 'debug';
+      const { createLogger } = await importLoggerFresh();
+      const child = createLogger('CRM').child('Leads');
+      const spy = vi.spyOn(console, 'log').mockImplementation(() => {});
+
+      child.info('created');
+      expect(spy.mock.calls[0][0]).toContain('[CRM:Leads]');
+    });
+
+    it('time() measures duration and logs at debug level', async () => {
+      process.env.LOG_LEVEL = 'debug';
+      const { createLogger } = await importLoggerFresh();
+      const log = createLogger('Perf');
+      const spy = vi.spyOn(console, 'debug').mockImplementation(() => {});
+
+      const end = log.time('dbQuery');
+      const ms = end({ rows: 5 });
+      expect(typeof ms).toBe('number');
+      expect(ms).toBeGreaterThanOrEqual(0);
+      expect(spy.mock.calls[0][0]).toContain('dbQuery (');
+    });
+
+    it('http() logs 2xx as info, 4xx as warn, 5xx as error', async () => {
+      process.env.LOG_LEVEL = 'debug';
+      const { createLogger } = await importLoggerFresh();
+      const log = createLogger('HTTP');
+      const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+      log.http('get', '/api/leads?token=secret', 200, 12.4);
+      log.http('post', '/api/leads', 400, 5.1);
+      log.http('get', '/api/leads', 500, 99.8);
+
+      expect(logSpy.mock.calls[0][0]).toContain('GET /api/leads -> 200 (12ms)');
+      expect(warnSpy.mock.calls[0][0]).toContain('POST /api/leads -> 400 (5ms)');
+      expect(errSpy.mock.calls[0][0]).toContain('GET /api/leads -> 500 (100ms)');
+    });
+
+    it('redacts Bearer tokens, emails, and handles circular metadata', async () => {
+      process.env.LOG_LEVEL = 'debug';
+      const { createLogger } = await importLoggerFresh();
+      const log = createLogger('Sec');
+      const spy = vi.spyOn(console, 'log').mockImplementation(() => {});
+
+      const circular: Record<string, unknown> = { email: 'user@example.com' };
+      circular.self = circular;
+
+      log.info('Auth Bearer my-secret-jwt-123', circular);
+      const output = spy.mock.calls[0][0] as string;
+      expect(output).toContain('Bearer [REDACTED]');
+      expect(output).toContain('[email redacted]');
+      expect(output).toContain('[Circular]');
+    });
+  });
 });
