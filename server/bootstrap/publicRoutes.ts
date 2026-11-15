@@ -34,6 +34,32 @@ export function mountPublicRoutes(app: Express): void {
     });
   });
 
+  app.get('/health/live', (_req: Request, res: Response) => {
+    res.status(200).json({
+      status: 'alive',
+      service: 'white-caves-api',
+      uptime: process.uptime(),
+      timestamp: new Date().toISOString(),
+    });
+  });
+
+  app.get('/health/ready', async (_req: Request, res: Response) => {
+    try {
+      await prisma.$runCommandRaw({ ping: 1 });
+      res.status(200).json({
+        status: 'ready',
+        service: 'white-caves-api',
+        timestamp: new Date().toISOString(),
+      });
+    } catch {
+      res.status(503).json({
+        status: 'not_ready',
+        service: 'white-caves-api',
+        timestamp: new Date().toISOString(),
+      });
+    }
+  });
+
   // Public API health endpoint (used by runtime/deployment verifiers and Vercel checks)
   app.get('/api/health', (req: Request, res: Response) => {
     const mem = process.memoryUsage();

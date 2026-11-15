@@ -216,7 +216,8 @@ export const firebaseSyncHandler = asyncHandler(async (req: RouteRequest, res: R
     res.cookie('refresh_token', `${user.id}:${rawFbRefreshToken}`, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
+      sameSite: 'lax',
+    domain: process.env.NODE_ENV === 'production' ? '.whitecaves.com' : undefined,
       maxAge: 7 * 24 * 60 * 60 * 1000,
       path: '/api/auth',
     });

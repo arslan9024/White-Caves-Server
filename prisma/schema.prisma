@@ -16,6 +16,8 @@ model User {
   name              String?
   photoUrl          String?
   role              String    @default("guest") // guest (unconfirmed), client roles, staff roles — see selfServiceRolePolicy.ts
+  roles             String[]  @default(["guest"])
+  preferredPortal   String?
   phone             String?
   department        String?
   status            String    @default("active")
@@ -58,6 +60,11 @@ model User {
   twoFASetup             TwoFASetup?
   dashboardPreference    UserDashboardPreference?
   notificationPreference NotificationPreference?
+  employeeProfile        EmployeeProfile?
+  landlordProfile        LandlordProfile?
+  tenantProfile          TenantProfile?
+  buyerProfile           BuyerProfile?
+  sellerProfile          SellerProfile?
   pushTokens             UserPushToken[]
   eventRsvps             EventRSVP[]
   facilityBookings       FacilityBooking[]
@@ -2485,4 +2492,51 @@ model Organization {
   establishedDate DateTime @default(now())
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
+}
+
+// ─── MULTI-ROLE ISOLATED PROFILES (PHASE 1) ─────────────────────────────
+
+model EmployeeProfile {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId     String   @unique @db.ObjectId
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  department String?
+  brnNumber  String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model LandlordProfile {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId    String   @unique @db.ObjectId
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  emiratesId String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model TenantProfile {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId     String   @unique @db.ObjectId
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  emiratesId String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model BuyerProfile {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId    String   @unique @db.ObjectId
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  budgetAed Float?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model SellerProfile {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId    String   @unique @db.ObjectId
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
