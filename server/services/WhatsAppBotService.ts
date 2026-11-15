@@ -66,8 +66,6 @@ class WhatsAppBotService {
         }
 
         log.error(`${message} (continuing startup in degraded mode)`);
-      } else {
-        log.info('WhatsApp credentials not configured — message sending disabled in development');
       }
     }
   }
