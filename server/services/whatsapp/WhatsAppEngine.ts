@@ -10,6 +10,7 @@
 
 import { EventEmitter } from 'events';
 import path from 'path';
+import { getSocketServer } from '../socketServer.js';
 import {
   LINDA_SESSIONS_PATH,
   LINDA_HEADLESS,
@@ -455,6 +456,28 @@ export class WhatsAppEngine extends EventEmitter {
       console.log(`[WhatsAppEngine:${this.config.clientId}] Status: ${this.status} → ${newStatus}`);
       this.status = newStatus;
       this.emit('status_changed', newStatus);
+
+      // Push real-time connection state change to all CRM frontends
+      try {
+        const isConn = newStatus === WhatsAppEngineStatus.READY && this.sessionActive;
+        const normalizedStatus =
+          newStatus === WhatsAppEngineStatus.READY
+            ? 'connected'
+            : newStatus === WhatsAppEngineStatus.RECONNECTING
+              ? 'reconnecting'
+              : newStatus === WhatsAppEngineStatus.ERROR
+                ? 'error'
+                : 'disconnected';
+
+        getSocketServer()?.emitLindaConnectionState({
+          account: this.config.clientId || '+971505760056',
+          status: normalizedStatus,
+          isConnected: isConn,
+          timestamp: Date.now(),
+        });
+      } catch (err) {
+        console.warn(`[WhatsAppEngine:${this.config.clientId}] Socket broadcast omitted:`, err);
+      }
     }
   }
 

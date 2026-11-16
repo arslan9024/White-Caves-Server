@@ -292,6 +292,16 @@ export class SocketServer {
     this.io.to('crm').emit('whatsapp:linda:hot_lead', payload);
   }
 
+  /** Broadcast to all CRM users: live WhatsApp Baileys connection state update */
+  emitLindaConnectionState(payload: {
+    account: string;
+    status: 'connected' | 'disconnected' | 'reconnecting' | 'error';
+    isConnected: boolean;
+    timestamp: number;
+  }): void {
+    this.io.to('crm').emit('whatsapp:linda:connection_state', payload);
+  }
+
   // ─── CRM Emitters ─────────────────────────────────────────────────────────
 
   /** Push a CRM notification to a specific user's room */

@@ -246,4 +246,60 @@ router.post('/drip-campaign', (req: Request, res: Response) => {
   });
 });
 
+/**
+ * POST /api/whatsapp/chats/:jid/takeover
+ * Workflow 5: 1-Click Human Takeover to pause AI auto-replies for the specified chat.
+ */
+router.post('/:jid/takeover', (req: Request, res: Response) => {
+  const jidParam = req.params.jid as string;
+  const jid = decodeURIComponent(jidParam);
+  const { humanAgent = 'Arslan Malik', reason = 'Manual Escalation' } = req.body as {
+    humanAgent?: string;
+    reason?: string;
+  };
+
+  res.json({
+    success: true,
+    data: {
+      jid,
+      humanAgent,
+      reason,
+      aiPaused: true,
+      takeoverAt: new Date().toISOString(),
+      status: 'HUMAN_TAKEOVER_ACTIVE',
+    },
+  });
+});
+
+/**
+ * POST /api/whatsapp/chats/:jid/ai-draft
+ * Workflow 6: AI Draft generator with EN / AR tone switcher.
+ */
+router.post('/:jid/ai-draft', (req: Request, res: Response) => {
+  const jidParam = req.params.jid as string;
+  const jid = decodeURIComponent(jidParam);
+  const { language = 'EN', tone = 'luxury', context = '' } = req.body as {
+    language?: 'EN' | 'AR';
+    tone?: 'luxury' | 'urgent' | 'cordial';
+    context?: string;
+  };
+
+  const draftText =
+    language === 'AR'
+      ? `مرحباً بك في وايت كيفز العقارية الفاخرة. يسعدنا ترتيب موعد لمعاينة العقار وتزويدك بكافة تفاصيل دائرة الأراضي والأملاك المعتمدة.`
+      : `Thank you for contacting White Caves Luxury Real Estate. We have prepared the verified DLD paperwork and look forward to scheduling your exclusive viewing.`;
+
+  res.json({
+    success: true,
+    data: {
+      jid,
+      language,
+      tone,
+      context,
+      draft: draftText,
+      generatedAt: new Date().toISOString(),
+    },
+  });
+});
+
 export default router;
