@@ -93,6 +93,10 @@ const ALLOWED_STATIC_ORIGINS: readonly string[] = [
   'https://white-caves-web.vercel.app',
   'https://white-caves.vercel.app',
   'https://app.whitecaves.com',
+  'https://auth.whitecaves.com',
+  'https://md.whitecaves.com',
+  'https://landlord.whitecaves.com',
+  'https://tenant.whitecaves.com',
   'https://portal.whitecaves.ae',
   'https://api.whitecaves.com',
 ];
