@@ -26,6 +26,7 @@ import crmRoutes from './crm.js';
 import nadiaRoutes from './nadia.js';
 import lindaRoutes from './linda.js';
 import lindaProxyRoutes from './linda-proxy.js';
+import sanctumRoutes from './sanctum.js';
 import metaWebhookRoutes from './meta-webhook.js';
 import favoritesRoutes from './favorites.js';
 import orchestratorRoutes from './orchestrator.js';
@@ -299,4 +300,8 @@ export function mountDomainRoutes(app: Express): void {
   app.use('/api/users/role-request', authMiddleware, roleRequestRouter);
   app.use('/api/admin/role-requests', authMiddleware, adminRoleRequestRouter);
   app.use('/api/linda/proxy', lindaProxyRoutes);
+
+  // AICC-Sanctum Agent Hierarchy API — Zoe COO, 12 Directors, 108 Managers
+  // Delegation engine + bridge endpoints for Linda → Mary / Daisy / Henry
+  app.use('/api/sanctum', authMiddleware, sanctumRoutes);
 }
