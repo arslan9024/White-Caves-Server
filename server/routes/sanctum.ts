@@ -73,9 +73,10 @@ router.get('/agents', (_req: Request, res: Response) => {
 
 // ── GET /api/sanctum/agents/:id ──────────────────────────────────────────────
 router.get('/agents/:id', (req: Request, res: Response) => {
-  const agent = getSanctumAgentById(req.params.id);
+  const agentId = String(req.params.id);
+  const agent = getSanctumAgentById(agentId);
   if (!agent) {
-    return res.status(404).json({ error: `Agent '${req.params.id}' not found in Sanctum Hierarchy.` });
+    return res.status(404).json({ error: `Agent '${agentId}' not found in Sanctum Hierarchy.` });
   }
   return res.json({ agent });
 });
@@ -134,7 +135,7 @@ router.post('/delegate', async (req: Request, res: Response) => {
 
 // ── POST /api/sanctum/bridge/:agentId (Mary / Daisy / Henry / Linda) ─────────
 router.post('/bridge/:agentId', async (req: Request, res: Response) => {
-  const { agentId } = req.params;
+  const agentId = String(req.params.agentId);
   const validBridges = ['mary-inventory', 'daisy-leasing', 'henry', 'linda'];
 
   if (!validBridges.includes(agentId)) {
