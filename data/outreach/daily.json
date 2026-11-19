@@ -1,0 +1,17 @@
+{
+  "enabled": true,
+  "mode": "draft",
+  "projects": "VARDON",
+  "lastRun": {
+    "day": "2026-11-16",
+    "mode": "draft",
+    "projects": "VARDON",
+    "at": "2026-11-16T05:03:50.129Z",
+    "today": 12,
+    "held": 531,
+    "existing": 3,
+    "csv": "C:\\Users\\Dell\\Documents\\antigravity\\White-Caves\\whatsapp-bot-linda\\data\\outreach\\outreach-vardon-2026-11-16.csv",
+    "draft": "Outreach VARDON 2026-11-16",
+    "result": "draft \"Outreach VARDON 2026-11-16\""
+  }
+}

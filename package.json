@@ -8,6 +8,8 @@
     "ports:check": "npx tsx ../secrets/ports.ts --check",
     "dev": "nodemon",
     "dev:tsx": "tsx watch server/index.ts",
+    "dev:dashboard": "cross-env LINDA_TERMINAL_DASHBOARD=true tsx watch server/index.ts",
+    "start:dashboard": "cross-env LINDA_TERMINAL_DASHBOARD=true tsx server/index.ts",
     "start": "tsx server/index.ts",
     "build": "tsc -p tsconfig.json",
     "prisma:generate": "prisma generate",

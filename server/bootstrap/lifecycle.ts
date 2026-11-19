@@ -93,6 +93,20 @@ const startServer = async (app: Express, runtime: ServerRuntime) => {
       logger.warn('AssistantOrchestrator init failed:', err instanceof Error ? err.message : err);
     });
 
+  // Optional: Launch Linda Terminal Health Dashboard when LINDA_TERMINAL_DASHBOARD=true
+  if (process.env.LINDA_TERMINAL_DASHBOARD === 'true') {
+    import('../services/whatsapp/linda-core/imported/src/terminal/TerminalHealthDashboard.js')
+      .then(({ default: terminalHealthDashboard }) => {
+        if (terminalHealthDashboard && typeof terminalHealthDashboard.startAutoRefresh === 'function') {
+          terminalHealthDashboard.startAutoRefresh();
+          logger.info('Linda Terminal Health Dashboard auto-refresh initiated.');
+        }
+      })
+      .catch((err: unknown) => {
+        logger.warn('Linda Terminal Dashboard startup skipped:', err instanceof Error ? err.message : err);
+      });
+  }
+
   // Non-blocking background check for any legacy password hashes
   void (async () => {
     try {

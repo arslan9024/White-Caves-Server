@@ -184,3 +184,7 @@ sessions/
 
 .vercel
 .env*
+
+server/config/google/keys.json
+server/config/google/
+

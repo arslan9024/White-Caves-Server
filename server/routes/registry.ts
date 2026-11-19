@@ -25,6 +25,7 @@ import complianceRoutes from './compliance.js';
 import crmRoutes from './crm.js';
 import nadiaRoutes from './nadia.js';
 import lindaRoutes from './linda.js';
+import lindaProxyRoutes from './linda-proxy.js';
 import metaWebhookRoutes from './meta-webhook.js';
 import favoritesRoutes from './favorites.js';
 import orchestratorRoutes from './orchestrator.js';
@@ -297,4 +298,5 @@ export function mountDomainRoutes(app: Express): void {
   // Role Request APIs — user self-service requests + admin approval queue
   app.use('/api/users/role-request', authMiddleware, roleRequestRouter);
   app.use('/api/admin/role-requests', authMiddleware, adminRoleRequestRouter);
+  app.use('/api/linda/proxy', lindaProxyRoutes);
 }

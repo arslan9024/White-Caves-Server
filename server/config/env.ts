@@ -16,6 +16,8 @@ if (!isTestRuntime) {
   const customPath = process.env.DOTENV_CONFIG_PATH;
   const rootSecretsEnv = path.resolve(process.cwd(), '../secrets/.env');
   const localSecretsEnv = path.resolve(process.cwd(), 'secrets/.env');
+  const rootLindaEnv = path.resolve(process.cwd(), '../secrets/linda-bot.env');
+  const localLindaEnv = path.resolve(process.cwd(), 'secrets/linda-bot.env');
 
   if (customPath && fs.existsSync(customPath)) {
     dotenv.config({ path: customPath, quiet: true });
@@ -24,6 +26,14 @@ if (!isTestRuntime) {
   } else if (fs.existsSync(localSecretsEnv)) {
     dotenv.config({ path: localSecretsEnv, quiet: true });
   }
+
+  // Also load centralized linda-bot.env settings (sessions, master number, outreach pacing)
+  if (fs.existsSync(rootLindaEnv)) {
+    dotenv.config({ path: rootLindaEnv, quiet: true });
+  } else if (fs.existsSync(localLindaEnv)) {
+    dotenv.config({ path: localLindaEnv, quiet: true });
+  }
+
   dotenv.config({ quiet: true });
 }
 if (!isTestRuntime && runtimeEnv === 'production') {
@@ -136,6 +146,7 @@ export const LINDA_MAX_RECONNECT_ATTEMPTS = parseInt(
 export const LINDA_GOOGLE_SHEET_ID = process.env.LINDA_GOOGLE_SHEET_ID || '';
 export const LINDA_GOOGLE_KEYS_BASE64 = process.env.LINDA_GOOGLE_KEYS_BASE64 || '';
 export const LINDA_CORE_MODE = process.env.LINDA_CORE_MODE || 'legacy';
+export const LINDA_TERMINAL_DASHBOARD = process.env.LINDA_TERMINAL_DASHBOARD === 'true';
 
 // ─── Henry Document Hub ───────────────────────────────────────────────────
 export const HENRY_UPLOADS_PATH = process.env.HENRY_UPLOADS_PATH || './uploads/henry';
