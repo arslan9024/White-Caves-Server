@@ -97,8 +97,8 @@ const startServer = async (app: Express, runtime: ServerRuntime) => {
   if (process.env.LINDA_TERMINAL_DASHBOARD === 'true') {
     import('../services/whatsapp/linda-core/imported/src/terminal/TerminalHealthDashboard.js')
       .then(({ default: terminalHealthDashboard }) => {
-        if (terminalHealthDashboard && typeof terminalHealthDashboard.startAutoRefresh === 'function') {
-          terminalHealthDashboard.startAutoRefresh();
+        if (terminalHealthDashboard && typeof (terminalHealthDashboard as { startAutoRefresh?: (interval?: number) => void }).startAutoRefresh === 'function') {
+          (terminalHealthDashboard as { startAutoRefresh: (interval?: number) => void }).startAutoRefresh(5000);
           logger.info('Linda Terminal Health Dashboard auto-refresh initiated.');
         }
       })
