@@ -4,5 +4,6 @@ export * from './lindaMessageController.js';
 export * from './lindaCampaignController.js';
 export * from './lindaIntelligenceController.js';
 export * from './lindaOperationsController.js';
+export * from './lindaMultiSimController.js';
 
 

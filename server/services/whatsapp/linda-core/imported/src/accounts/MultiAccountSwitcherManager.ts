@@ -71,7 +71,10 @@ export class MultiAccountSwitcherManager {
 }
 
 export default new MultiAccountSwitcherManager([
-  { id: 'linda_primary', name: 'Linda (Primary Concierge)', phone: '+971501112233' },
-  { id: 'power_agent', name: 'PowerAgent (Campaigns)', phone: '+971559998877' }
+  { id: 'acc-001', name: 'Primary Master: Arslan Malik', phone: '+971505760056', status: 'READY' },
+  { id: 'acc-002', name: 'Master Desk 2 (DH2 Landlords)', phone: '+971503869886', status: 'READY' },
+  { id: 'acc-003', name: 'Master Line 3 (DH2 Tenants)', phone: '+971505110636', status: 'READY' },
+  { id: 'acc-004', name: 'Employee Desk (Leasing Viewings)', phone: '+971589969886', status: 'READY' },
+  { id: 'acc-005', name: 'Servant & Outreach Line (Campaigns)', phone: '+971553633595', status: 'READY' }
 ]);
 

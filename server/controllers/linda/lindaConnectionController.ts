@@ -6,17 +6,40 @@ import {
   emitLindaParitySnapshot,
 } from '../../services/whatsapp/linda-core/bridge/shadowParityReporter.js';
 import { getOrInitLindaRuntime } from './lindaCommon.js';
+import { lindaMultiSimPool } from '../../services/whatsapp/LindaMultiSimPoolService.js';
 
 export const getStatus = async (_req: Request, res: Response) => {
   try {
     const { linda, mode } = await getOrInitLindaRuntime();
     const stats = linda.getStats();
+    const poolAccounts = lindaMultiSimPool.listPoolAccounts();
 
     if (mode === 'shadow') {
       emitLindaParitySnapshot(buildLindaParitySnapshot('route_status', linda, mode));
     }
 
-    res.json({ success: true, data: { ...stats, enabled: LINDA_ENABLED } });
+    res.json({
+      success: true,
+      data: {
+        ...stats,
+        enabled: LINDA_ENABLED,
+        poolSize: poolAccounts.length,
+        connectedLines: poolAccounts.filter(a => a.isConnected).length,
+        sessions: poolAccounts.map(a => ({
+          id: a.id,
+          botId: a.sessionId,
+          phone: a.phoneNumber,
+          displayName: a.displayName,
+          role: a.role,
+          status: a.engineStatus.toLowerCase(),
+          isConnected: a.isConnected,
+          isActive: a.isActive,
+          qrAvailable: a.qrAvailable,
+          hourlySent: a.hourlySent,
+          hourlyRemaining: a.hourlyRemaining,
+        })),
+      },
+    });
   } catch (err) {
     res
       .status(500)
@@ -104,23 +127,28 @@ export const getStats = async (_req: Request, res: Response) => {
 export const getSessions = async (_req: Request, res: Response) => {
   try {
     const { linda, mode, sessionBridge } = await getOrInitLindaRuntime();
-    const stats = linda.getStats();
+    const poolAccounts = lindaMultiSimPool.listPoolAccounts();
 
     if (mode === 'shadow') {
       sessionBridge.traceSnapshot('route_sessions');
     }
 
-    const sessions = [
-      {
-        botId: 'linda-primary',
-        role: 'primary',
-        status: stats.status,
-        isConnected: stats.isConnected,
-        messagesSent: stats.messagesSent,
-        messagesReceived: stats.messagesReceived,
-        reconnectAttempts: stats.reconnectAttempts,
-      },
-    ];
+    const sessions = poolAccounts.map(acc => ({
+      id: acc.id,
+      botId: acc.sessionId,
+      phone: acc.phoneNumber,
+      displayName: acc.displayName,
+      role: acc.role,
+      status: acc.engineStatus,
+      isConnected: acc.isConnected,
+      isActive: acc.isActive,
+      qrAvailable: acc.qrAvailable,
+      sessionDirExists: acc.sessionDirExists,
+      hourlySent: acc.hourlySent,
+      hourlyRemaining: acc.hourlyRemaining,
+      messagesSent: acc.messagesSent,
+      messagesReceived: acc.messagesReceived,
+    }));
     res.json({ success: true, data: { sessions, total: sessions.length } });
   } catch (err) {
     res
