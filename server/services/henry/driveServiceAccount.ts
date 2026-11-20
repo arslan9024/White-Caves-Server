@@ -61,7 +61,7 @@ function loadServiceAccountCredentials(): { credentials: RawServiceAccountKey; k
 
   const candidates = [
     process.env.GOOGLE_DRIVE_SERVICE_ACCOUNT_PATH,
-    './secrets/goraha-key.json',
+    '../secrets/google/goraha-key.json',
     '../secrets/goraha-key.json',
   ].filter(Boolean) as string[];
 

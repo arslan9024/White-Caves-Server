@@ -15,6 +15,16 @@ import {
   listServiceAccountFolders,
   syncDH2UnitFolderToListing,
 } from '../services/henry/driveServiceAccount.js';
+import {
+  DEFAULT_INVENTORY_ROOT_ID,
+  ensureUnitStructure,
+  inspectUnitFolder,
+  listAreas,
+  listProjectsInArea,
+  listUnitsInProject,
+  STANDARD_UNIT_SUBFOLDERS,
+  verifyInventoryRootAccess,
+} from '../services/henry/driveInventoryManager.js';
 
 const router = Router();
 const log = createLogger('HenryDriveRoutes');
@@ -132,6 +142,67 @@ router.post('/service-account/sync-listing', asyncHandler(async (req: AuthReques
       annualRentAed: typeof annualRentAed === 'number' ? annualRentAed : undefined,
       bedrooms: typeof bedrooms === 'number' ? bedrooms : undefined,
     }),
+  });
+}));
+// Henry Inventory Folder Manager (Area -> Project -> Unit -> [House Pictures, Landlord Docs, Tenant Docs, Tenancy Contract, Other])
+router.get('/inventory/access', asyncHandler(async (req: AuthRequest, res) => {
+  const rootFolderId = typeof req.query.rootFolderId === 'string' && req.query.rootFolderId.trim()
+    ? req.query.rootFolderId.trim()
+    : DEFAULT_INVENTORY_ROOT_ID;
+  res.json({ success: true, data: await verifyInventoryRootAccess(rootFolderId) });
+}));
+router.get('/inventory/areas', asyncHandler(async (req: AuthRequest, res) => {
+  const rootFolderId = typeof req.query.rootFolderId === 'string' && req.query.rootFolderId.trim()
+    ? req.query.rootFolderId.trim()
+    : DEFAULT_INVENTORY_ROOT_ID;
+  res.json({ success: true, data: { rootFolderId, areas: await listAreas(rootFolderId) } });
+}));
+router.get('/inventory/areas/:area/projects', asyncHandler(async (req: AuthRequest, res) => {
+  const rootFolderId = typeof req.query.rootFolderId === 'string' && req.query.rootFolderId.trim()
+    ? req.query.rootFolderId.trim()
+    : DEFAULT_INVENTORY_ROOT_ID;
+  res.json({ success: true, data: await listProjectsInArea(String(req.params.area), rootFolderId) });
+}));
+router.get('/inventory/areas/:area/projects/:project/units', asyncHandler(async (req: AuthRequest, res) => {
+  const rootFolderId = typeof req.query.rootFolderId === 'string' && req.query.rootFolderId.trim()
+    ? req.query.rootFolderId.trim()
+    : DEFAULT_INVENTORY_ROOT_ID;
+  res.json({
+    success: true,
+    data: await listUnitsInProject(String(req.params.area), String(req.params.project), rootFolderId),
+  });
+}));
+router.get('/inventory/areas/:area/projects/:project/units/:unit', asyncHandler(async (req: AuthRequest, res) => {
+  const rootFolderId = typeof req.query.rootFolderId === 'string' && req.query.rootFolderId.trim()
+    ? req.query.rootFolderId.trim()
+    : DEFAULT_INVENTORY_ROOT_ID;
+  res.json({
+    success: true,
+    data: await inspectUnitFolder({
+      areaName: String(req.params.area),
+      projectName: String(req.params.project),
+      unitNumber: String(req.params.unit),
+      rootFolderId,
+    }),
+  });
+}));
+router.post('/inventory/units/ensure', asyncHandler(async (req: AuthRequest, res) => {
+  const { areaName, projectName, unitNumber, rootFolderId, extraSubfolders } = req.body || {};
+  if (!areaName || !projectName || !unitNumber) {
+    throw new AppError('areaName, projectName, and unitNumber are required', 400);
+  }
+  res.json({
+    success: true,
+    data: {
+      standardSubfolders: STANDARD_UNIT_SUBFOLDERS,
+      structure: await ensureUnitStructure({
+        areaName: String(areaName),
+        projectName: String(projectName),
+        unitNumber: String(unitNumber),
+        rootFolderId: typeof rootFolderId === 'string' ? rootFolderId : undefined,
+        extraSubfolders: Array.isArray(extraSubfolders) ? extraSubfolders.map(String) : undefined,
+      }),
+    },
   });
 }));
 // Never send provider error objects (which can include codes, headers and credentials) to logs or clients.

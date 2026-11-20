@@ -7,37 +7,45 @@ import fs from 'fs';
 import path from 'path';
 import dotenv from 'dotenv';
 
-// Load environment variables as early as possible to prevent import-order issues.
-// Checks root ../secrets/.env first, then secrets/.env, then .env, then .env.production.
+// Load environment variables as early as possible from the centralized secrets vault
+// OUTSIDE all Git repositories (c:\Users\Dell\Documents\antigravity\White-Caves\secrets\).
+// Single Purpose Law: each domain owns its own isolated .env file.
 const runtimeEnv = process.env.NODE_ENV;
 const isTestRuntime = runtimeEnv === 'test' || process.env.VITEST === 'true';
 
+export const CENTRAL_SECRETS_DIR = path.resolve(
+  process.cwd(),
+  process.env.WHITE_CAVES_SECRETS_DIR || '../secrets'
+);
+
+const SINGLE_PURPOSE_VAULT_FILES = [
+  'server-runtime.env',
+  'database.env',
+  'auth-security.env',
+  'stripe.env',
+  'firebase.env',
+  'google.env',
+  'henry-vault.env',
+  'linda-bot.env',
+  'meta-cloud.env',
+];
+
 if (!isTestRuntime) {
   const customPath = process.env.DOTENV_CONFIG_PATH;
-  const rootSecretsEnv = path.resolve(process.cwd(), '../secrets/.env');
-  const localSecretsEnv = path.resolve(process.cwd(), 'secrets/.env');
-  const rootLindaEnv = path.resolve(process.cwd(), '../secrets/linda-bot.env');
-  const localLindaEnv = path.resolve(process.cwd(), 'secrets/linda-bot.env');
-
   if (customPath && fs.existsSync(customPath)) {
     dotenv.config({ path: customPath, quiet: true });
-  } else if (fs.existsSync(rootSecretsEnv)) {
-    dotenv.config({ path: rootSecretsEnv, quiet: true });
-  } else if (fs.existsSync(localSecretsEnv)) {
-    dotenv.config({ path: localSecretsEnv, quiet: true });
   }
-
-  // Also load centralized linda-bot.env settings (sessions, master number, outreach pacing)
-  if (fs.existsSync(rootLindaEnv)) {
-    dotenv.config({ path: rootLindaEnv, quiet: true });
-  } else if (fs.existsSync(localLindaEnv)) {
-    dotenv.config({ path: localLindaEnv, quiet: true });
+  for (const filename of SINGLE_PURPOSE_VAULT_FILES) {
+    const filePath = path.join(CENTRAL_SECRETS_DIR, filename);
+    if (fs.existsSync(filePath)) {
+      dotenv.config({ path: filePath, quiet: true });
+    }
   }
-
-  dotenv.config({ quiet: true });
-}
-if (!isTestRuntime && runtimeEnv === 'production') {
-  dotenv.config({ path: '.env.production', override: true, quiet: true });
+  // Backward-compatible fallback if only legacy centralized .env exists
+  const legacyCentralEnv = path.join(CENTRAL_SECRETS_DIR, '.env');
+  if (fs.existsSync(legacyCentralEnv)) {
+    dotenv.config({ path: legacyCentralEnv, quiet: true });
+  }
 }
 
 // ─── Server ──────────────────────────────────────────────────────────────
