@@ -16,12 +16,16 @@ import {
   syncDH2UnitFolderToListing,
 } from '../services/henry/driveServiceAccount.js';
 import {
+  auditAreaFormula,
   DEFAULT_INVENTORY_ROOT_ID,
+  enforceUnitFormula,
   ensureUnitStructure,
   inspectUnitFolder,
   listAreas,
   listProjectsInArea,
   listUnitsInProject,
+  mergeDuplicateFolders,
+  queryPropertyUnit,
   STANDARD_UNIT_SUBFOLDERS,
   verifyInventoryRootAccess,
 } from '../services/henry/driveInventoryManager.js';
@@ -203,6 +207,54 @@ router.post('/inventory/units/ensure', asyncHandler(async (req: AuthRequest, res
         extraSubfolders: Array.isArray(extraSubfolders) ? extraSubfolders.map(String) : undefined,
       }),
     },
+  });
+}));
+router.get('/inventory/query', asyncHandler(async (req: AuthRequest, res) => {
+  const area = String(req.query.area || '').trim();
+  const project = String(req.query.project || '').trim();
+  const unitNumber = String(req.query.unit || req.query.unitNumber || '').trim();
+  if (!area || !project || !unitNumber) {
+    throw new AppError('Query parameters area, project, and unit are required', 400);
+  }
+  const rootFolderId = typeof req.query.rootFolderId === 'string' && req.query.rootFolderId.trim()
+    ? req.query.rootFolderId.trim()
+    : DEFAULT_INVENTORY_ROOT_ID;
+  res.json({ success: true, data: await queryPropertyUnit({ area, project, unitNumber, rootFolderId }) });
+}));
+router.post('/inventory/enforce', asyncHandler(async (req: AuthRequest, res) => {
+  const { areaName, projectName, unitNumber, rootFolderId, extraSubfolders, dryRun, mergeDuplicates, trashEmptyDuplicates } = req.body || {};
+  if (!areaName || !projectName || !unitNumber) {
+    throw new AppError('areaName, projectName, and unitNumber are required', 400);
+  }
+  res.json({
+    success: true,
+    data: await enforceUnitFormula({
+      areaName: String(areaName),
+      projectName: String(projectName),
+      unitNumber: String(unitNumber),
+      rootFolderId: typeof rootFolderId === 'string' ? rootFolderId : undefined,
+      extraSubfolders: Array.isArray(extraSubfolders) ? extraSubfolders.map(String) : undefined,
+      dryRun: dryRun === true,
+      mergeDuplicates: mergeDuplicates !== false,
+      trashEmptyDuplicates: trashEmptyDuplicates === true,
+    }),
+  });
+}));
+router.get('/inventory/audit/:area', asyncHandler(async (req: AuthRequest, res) => {
+  const rootFolderId = typeof req.query.rootFolderId === 'string' && req.query.rootFolderId.trim()
+    ? req.query.rootFolderId.trim()
+    : DEFAULT_INVENTORY_ROOT_ID;
+  res.json({ success: true, data: await auditAreaFormula(String(req.params.area), rootFolderId) });
+}));
+router.post('/inventory/merge-duplicates', asyncHandler(async (req: AuthRequest, res) => {
+  const { parentId, dryRun, trashEmptyDuplicates } = req.body || {};
+  if (!parentId || typeof parentId !== 'string') throw new AppError('parentId is required', 400);
+  res.json({
+    success: true,
+    data: await mergeDuplicateFolders(parentId, {
+      dryRun: dryRun !== false,
+      trashEmptyDuplicates: trashEmptyDuplicates === true,
+    }),
   });
 }));
 // Never send provider error objects (which can include codes, headers and credentials) to logs or clients.

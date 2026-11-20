@@ -11,15 +11,27 @@ const IMAGE_MIMES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/hei
 export const DEFAULT_INVENTORY_ROOT_ID =
   process.env.GOOGLE_DRIVE_INVENTORY_ROOT_FOLDER_ID || '1g9Vd21YBJ-GB1bLl2jR7pgVGsHeqpi-N';
 
+/**
+ * Canonical Property Unit Subfolder Formula:
+ * Inventory Areas / <Area> / <Project> / <Unit Number> / <Subfolder>
+ */
 export const STANDARD_UNIT_SUBFOLDERS = {
-  housePictures: '01_House_Pictures',
-  landlordDocuments: '02_Landlord_Documents',
-  tenantDocuments: '03_Tenant_Documents',
-  tenancyContract: '04_Tenancy_Contract',
-  otherRelated: '05_Other_Related',
+  housePictures: 'House Pictures',
+  landlordDocuments: 'Landlord Documents',
+  tenantDocuments: 'Tenant Documents',
+  tenancyContract: 'Tenancy Contract',
+  otherDocuments: 'Other Documents',
 } as const;
 
 export type UnitSubfolderKey = keyof typeof STANDARD_UNIT_SUBFOLDERS;
+
+const SUBFOLDER_ALIASES: Record<UnitSubfolderKey, string[]> = {
+  housePictures: ['house pictures', '01_house_pictures', 'pictures', 'photos', 'house photos', 'unit photos', 'images', 'villa photos'],
+  landlordDocuments: ['landlord documents', '02_landlord_documents', 'landlord docs', 'landlord', 'owner documents', 'owner docs', 'owner', 'title deed'],
+  tenantDocuments: ['tenant documents', '03_tenant_documents', 'tenant docs', 'tenant', 'tenants', 'old tenant', 'tenant id'],
+  tenancyContract: ['tenancy contract', '04_tenancy_contract', 'tenancy contracts', 'tenancy', 'contract', 'contracts', 'ejari', 'lease'],
+  otherDocuments: ['other documents', '05_other_related', 'other related', 'other', 'misc', 'maintenance', 'quotations'],
+};
 
 export interface InventoryAccessReport {
   rootFolderId: string;
@@ -45,10 +57,20 @@ export interface DriveNode {
 
 export interface UnitFolderStructure {
   rootFolderId: string;
+  queryPath: string;
   area: { id: string; name: string };
   project: { id: string; name: string };
   unit: { id: string; name: string };
   subfolders: Record<UnitSubfolderKey, { id: string; name: string }> & Record<string, { id: string; name: string }>;
+}
+
+export interface FormulaAction {
+  type: 'create_folder' | 'rename_folder' | 'merge_duplicate_folder' | 'move_child' | 'mark_empty_duplicate' | 'trash_empty_duplicate';
+  targetId?: string;
+  fromName?: string;
+  toName?: string;
+  detail: string;
+  applied: boolean;
 }
 
 interface RawKey {
@@ -56,6 +78,10 @@ interface RawKey {
   project_id?: string;
   client_email?: string;
   private_key?: string;
+}
+
+function normalizeNameKey(name: string): string {
+  return name.trim().replace(/\s+/g, ' ').toLowerCase();
 }
 
 function loadCentralGorahaCredentials(): RawKey {
@@ -173,14 +199,38 @@ export async function listChildNodes(
   }));
 }
 
+export async function findMatchingChildFolders(
+  parentId: string,
+  namesOrAliases: string[],
+  clientOverride?: { drive: drive_v3.Drive; email: string }
+): Promise<DriveNode[]> {
+  const children = await listChildNodes(parentId, true, clientOverride);
+  const targets = new Set(namesOrAliases.map(normalizeNameKey));
+  return children.filter(c => targets.has(normalizeNameKey(c.name)));
+}
+
 export async function findChildFolderByName(
   parentId: string,
   name: string,
   clientOverride?: { drive: drive_v3.Drive; email: string }
 ): Promise<DriveNode | null> {
-  const children = await listChildNodes(parentId, true, clientOverride);
-  const target = name.trim().toLowerCase();
-  return children.find(c => c.name.trim().toLowerCase() === target) || null;
+  const matches = await findMatchingChildFolders(parentId, [name], clientOverride);
+  return matches[0] || null;
+}
+
+export async function renameFolder(
+  folderId: string,
+  cleanName: string,
+  clientOverride?: { drive: drive_v3.Drive; email: string }
+): Promise<{ id: string; name: string }> {
+  const { drive } = clientOverride || createInventoryDriveClient();
+  const updated = await drive.files.update({
+    fileId: folderId,
+    requestBody: { name: cleanName.trim() },
+    fields: 'id,name',
+    supportsAllDrives: true,
+  });
+  return { id: updated.data.id || folderId, name: updated.data.name || cleanName.trim() };
 }
 
 export async function ensureFolder(
@@ -193,16 +243,144 @@ export async function ensureFolder(
 
   const { drive } = clientOverride || createInventoryDriveClient();
   const created = await drive.files.create({
-    requestBody: {
-      name: name.trim(),
-      mimeType: FOLDER_MIME,
-      parents: [parentId],
-    },
+    requestBody: { name: name.trim(), mimeType: FOLDER_MIME, parents: [parentId] },
     fields: 'id,name',
     supportsAllDrives: true,
   });
   if (!created.data.id) throw new AppError(`Failed creating Drive folder "${name}"`, 502);
   return { id: created.data.id, name: created.data.name || name.trim(), created: true };
+}
+
+export async function detectDuplicateFolders(
+  parentId: string,
+  clientOverride?: { drive: drive_v3.Drive; email: string }
+): Promise<Array<{ normalizedName: string; folders: DriveNode[] }>> {
+  const folders = await listChildNodes(parentId, true, clientOverride);
+  const groups = new Map<string, DriveNode[]>();
+  for (const folder of folders) {
+    if (folder.name.startsWith('[MERGED_EMPTY]')) continue;
+    const key = normalizeNameKey(folder.name);
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key)!.push(folder);
+  }
+  return Array.from(groups.entries())
+    .filter(([, list]) => list.length > 1)
+    .map(([normalizedName, list]) => ({ normalizedName, folders: list }));
+}
+
+async function mergeFolderListIntoPrimary(input: {
+  primary: DriveNode;
+  duplicates: DriveNode[];
+  canonicalName: string;
+  dryRun: boolean;
+  trashEmptyDuplicates: boolean;
+  client: { drive: drive_v3.Drive; email: string };
+  actions: FormulaAction[];
+}): Promise<DriveNode> {
+  const { primary, duplicates, canonicalName, dryRun, trashEmptyDuplicates, client, actions } = input;
+
+  if (primary.name !== canonicalName) {
+    if (!dryRun) await renameFolder(primary.id, canonicalName, client);
+    actions.push({
+      type: 'rename_folder',
+      targetId: primary.id,
+      fromName: primary.name,
+      toName: canonicalName,
+      detail: `Standardized folder name "${primary.name}" → "${canonicalName}"`,
+      applied: !dryRun,
+    });
+    primary.name = canonicalName;
+  }
+
+  for (const dup of duplicates) {
+    const dupChildren = await listChildNodes(dup.id, false, client);
+    actions.push({
+      type: 'merge_duplicate_folder',
+      targetId: dup.id,
+      fromName: dup.name,
+      toName: primary.name,
+      detail: `Merging ${dupChildren.length} items from duplicate "${dup.name}" (${dup.id}) into "${primary.name}" (${primary.id})`,
+      applied: !dryRun,
+    });
+
+    for (const child of dupChildren) {
+      if (!dryRun) {
+        await client.drive.files.update({
+          fileId: child.id,
+          addParents: primary.id,
+          removeParents: dup.id,
+          fields: 'id,parents',
+          supportsAllDrives: true,
+        });
+      }
+      actions.push({
+        type: 'move_child',
+        targetId: child.id,
+        fromName: dup.name,
+        toName: primary.name,
+        detail: `Moved "${child.name}" into primary "${primary.name}"`,
+        applied: !dryRun,
+      });
+    }
+
+    if (trashEmptyDuplicates) {
+      if (!dryRun) {
+        await client.drive.files.update({
+          fileId: dup.id,
+          requestBody: { trashed: true },
+          supportsAllDrives: true,
+        });
+      }
+      actions.push({
+        type: 'trash_empty_duplicate',
+        targetId: dup.id,
+        fromName: dup.name,
+        detail: `Trashed now-empty duplicate folder "${dup.name}" (${dup.id})`,
+        applied: !dryRun,
+      });
+    } else {
+      const archiveName = `[MERGED_EMPTY] ${dup.name.trim()} (${dup.id.slice(0, 6)})`;
+      if (!dryRun) await renameFolder(dup.id, archiveName, client);
+      actions.push({
+        type: 'mark_empty_duplicate',
+        targetId: dup.id,
+        fromName: dup.name,
+        toName: archiveName,
+        detail: `Marked merged duplicate folder as "${archiveName}" (zero-delete safe mode)`,
+        applied: !dryRun,
+      });
+    }
+  }
+
+  return primary;
+}
+
+export async function mergeDuplicateFolders(
+  parentId: string,
+  options?: { dryRun?: boolean; trashEmptyDuplicates?: boolean },
+  clientOverride?: { drive: drive_v3.Drive; email: string }
+) {
+  const client = clientOverride || createInventoryDriveClient();
+  const dryRun = options?.dryRun !== false;
+  const trashEmptyDuplicates = options?.trashEmptyDuplicates === true;
+  const duplicateGroups = await detectDuplicateFolders(parentId, client);
+  const actions: FormulaAction[] = [];
+
+  for (const group of duplicateGroups) {
+    const [primary, ...duplicates] = group.folders;
+    const cleanName = primary.name.trim().replace(/\s+/g, ' ');
+    await mergeFolderListIntoPrimary({
+      primary,
+      duplicates,
+      canonicalName: cleanName,
+      dryRun,
+      trashEmptyDuplicates,
+      client,
+      actions,
+    });
+  }
+
+  return { parentId, dryRun, duplicateGroupsFound: duplicateGroups.length, actions };
 }
 
 export async function listAreas(
@@ -237,10 +415,88 @@ export async function listUnitsInProject(
 }
 
 /**
- * Ensures full canonical inventory hierarchy:
- * Root -> Area (e.g. "DAMAC Hills 2") -> Project (e.g. "Pacifica") -> Unit (e.g. "343")
- * -> [01_House_Pictures, 02_Landlord_Documents, 03_Tenant_Documents, 04_Tenancy_Contract, 05_Other_Related, ...extra]
+ * Enforces the canonical formula:
+ * Inventory Areas / <Area> / <Project> / <Unit Number> /
+ *   [House Pictures, Landlord Documents, Tenant Documents, Tenancy Contract, Other Documents]
+ * Trims spaces, renames alias folders, merges duplicate sibling folders, and creates missing folders.
  */
+export async function enforceUnitFormula(input: {
+  areaName: string;
+  projectName: string;
+  unitNumber: string;
+  rootFolderId?: string;
+  extraSubfolders?: string[];
+  dryRun?: boolean;
+  mergeDuplicates?: boolean;
+  trashEmptyDuplicates?: boolean;
+  clientOverride?: { drive: drive_v3.Drive; email: string };
+}): Promise<{ dryRun: boolean; queryPath: string; actions: FormulaAction[]; structure: UnitFolderStructure }> {
+  const rootFolderId = input.rootFolderId || DEFAULT_INVENTORY_ROOT_ID;
+  const client = input.clientOverride || createInventoryDriveClient();
+  const dryRun = input.dryRun === true;
+  const shouldMerge = input.mergeDuplicates !== false;
+  const trashEmpty = input.trashEmptyDuplicates === true;
+  const actions: FormulaAction[] = [];
+
+  const ensureAndNormalizeLevel = async (parentId: string, canonicalName: string, aliases: string[] = []) => {
+    const cleanTarget = canonicalName.trim().replace(/\s+/g, ' ');
+    const matches = await findMatchingChildFolders(parentId, [cleanTarget, ...aliases], client);
+    if (matches.length === 0) {
+      if (dryRun) {
+        actions.push({ type: 'create_folder', toName: cleanTarget, detail: `Would create "${cleanTarget}"`, applied: false });
+        return { id: `dry-run:${cleanTarget}`, name: cleanTarget, mimeType: FOLDER_MIME };
+      }
+      const created = await ensureFolder(parentId, cleanTarget, client);
+      actions.push({ type: 'create_folder', targetId: created.id, toName: created.name, detail: `Created "${created.name}"`, applied: true });
+      return { id: created.id, name: created.name, mimeType: FOLDER_MIME };
+    }
+
+    const exact = matches.find(m => normalizeNameKey(m.name) === normalizeNameKey(cleanTarget)) || matches[0];
+    const others = shouldMerge ? matches.filter(m => m.id !== exact.id) : [];
+    return mergeFolderListIntoPrimary({
+      primary: { ...exact },
+      duplicates: others,
+      canonicalName: cleanTarget,
+      dryRun,
+      trashEmptyDuplicates: trashEmpty,
+      client,
+      actions,
+    });
+  };
+
+  const area = await ensureAndNormalizeLevel(rootFolderId, input.areaName);
+  const project = await ensureAndNormalizeLevel(area.id, input.projectName);
+  const unit = await ensureAndNormalizeLevel(project.id, input.unitNumber);
+
+  const subfolders = {} as UnitFolderStructure['subfolders'];
+  for (const [key, folderName] of Object.entries(STANDARD_UNIT_SUBFOLDERS)) {
+    const aliases = SUBFOLDER_ALIASES[key as UnitSubfolderKey] || [];
+    const node = await ensureAndNormalizeLevel(unit.id, folderName, aliases);
+    subfolders[key as UnitSubfolderKey] = { id: node.id, name: node.name };
+  }
+  for (const custom of input.extraSubfolders || []) {
+    const clean = custom.trim();
+    if (!clean) continue;
+    const node = await ensureAndNormalizeLevel(unit.id, clean);
+    subfolders[clean] = { id: node.id, name: node.name };
+  }
+
+  const queryPath = `${area.name}/${project.name}/${unit.name}`;
+  return {
+    dryRun,
+    queryPath,
+    actions,
+    structure: {
+      rootFolderId,
+      queryPath,
+      area: { id: area.id, name: area.name },
+      project: { id: project.id, name: project.name },
+      unit: { id: unit.id, name: unit.name },
+      subfolders,
+    },
+  };
+}
+
 export async function ensureUnitStructure(input: {
   areaName: string;
   projectName: string;
@@ -249,31 +505,74 @@ export async function ensureUnitStructure(input: {
   extraSubfolders?: string[];
   clientOverride?: { drive: drive_v3.Drive; email: string };
 }): Promise<UnitFolderStructure> {
+  const result = await enforceUnitFormula({ ...input, dryRun: false, mergeDuplicates: true });
+  return result.structure;
+}
+
+/**
+ * Canonical Property Query Engine:
+ * Answers: "Which inventory area / project / unit number?" -> structured assets & docs
+ */
+export async function queryPropertyUnit(input: {
+  area: string;
+  project: string;
+  unitNumber: string;
+  rootFolderId?: string;
+  clientOverride?: { drive: drive_v3.Drive; email: string };
+}) {
   const rootFolderId = input.rootFolderId || DEFAULT_INVENTORY_ROOT_ID;
   const client = input.clientOverride || createInventoryDriveClient();
+  const queryKey = `${input.area.trim()}/${input.project.trim()}/${input.unitNumber.trim()}`;
 
-  const area = await ensureFolder(rootFolderId, input.areaName, client);
-  const project = await ensureFolder(area.id, input.projectName, client);
-  const unit = await ensureFolder(project.id, input.unitNumber, client);
-
-  const subfolders = {} as UnitFolderStructure['subfolders'];
-  for (const [key, folderName] of Object.entries(STANDARD_UNIT_SUBFOLDERS)) {
-    const ensured = await ensureFolder(unit.id, folderName, client);
-    subfolders[key as UnitSubfolderKey] = { id: ensured.id, name: ensured.name };
+  const areaNode = await findChildFolderByName(rootFolderId, input.area, client);
+  if (!areaNode) return { queryKey, found: false, missingLevel: 'area' as const };
+  const projectNode = await findChildFolderByName(areaNode.id, input.project, client);
+  if (!projectNode) return { queryKey, found: false, missingLevel: 'project' as const, areaId: areaNode.id };
+  const unitMatches = await findMatchingChildFolders(projectNode.id, [input.unitNumber], client);
+  if (!unitMatches.length) {
+    return { queryKey, found: false, missingLevel: 'unit' as const, areaId: areaNode.id, projectId: projectNode.id };
   }
-  for (const customName of input.extraSubfolders || []) {
-    const clean = customName.trim();
-    if (!clean) continue;
-    const ensured = await ensureFolder(unit.id, clean, client);
-    subfolders[clean] = { id: ensured.id, name: ensured.name };
+
+  const unitNode = unitMatches[0];
+  const directChildren = await listChildNodes(unitNode.id, false, client);
+  const childFolders = directChildren.filter(c => c.mimeType === FOLDER_MIME);
+  const uncategorizedFiles = directChildren.filter(c => c.mimeType !== FOLDER_MIME);
+
+  const buckets: Record<UnitSubfolderKey, DriveNode[]> = {
+    housePictures: [],
+    landlordDocuments: [],
+    tenantDocuments: [],
+    tenancyContract: [],
+    otherDocuments: [],
+  };
+  const customSubfolders: Record<string, DriveNode[]> = {};
+
+  for (const folder of childFolders) {
+    const keyName = normalizeNameKey(folder.name);
+    const matchedBucket = (Object.keys(SUBFOLDER_ALIASES) as UnitSubfolderKey[]).find(k =>
+      SUBFOLDER_ALIASES[k].includes(keyName)
+    );
+    const files = await listChildNodes(folder.id, false, client);
+    if (matchedBucket) {
+      buckets[matchedBucket].push(...files);
+    } else {
+      customSubfolders[folder.name] = files;
+    }
   }
 
   return {
-    rootFolderId,
-    area: { id: area.id, name: area.name },
-    project: { id: project.id, name: project.name },
-    unit: { id: unit.id, name: unit.name },
-    subfolders,
+    queryKey,
+    found: true,
+    area: { id: areaNode.id, name: areaNode.name },
+    project: { id: projectNode.id, name: projectNode.name },
+    unit: { id: unitNode.id, name: unitNode.name },
+    duplicateUnitFoldersFound: unitMatches.length > 1 ? unitMatches.map(u => ({ id: u.id, name: u.name })) : [],
+    ...buckets,
+    customSubfolders,
+    uncategorizedFiles,
+    photoUrls: buckets.housePictures
+      .filter(f => IMAGE_MIMES.has(f.mimeType))
+      .map(f => f.thumbnailLink?.replace(/=s\d+$/, '=s1200') || `https://drive.google.com/uc?export=view&id=${f.id}`),
   };
 }
 
@@ -284,33 +583,36 @@ export async function inspectUnitFolder(input: {
   rootFolderId?: string;
   clientOverride?: { drive: drive_v3.Drive; email: string };
 }) {
-  const rootFolderId = input.rootFolderId || DEFAULT_INVENTORY_ROOT_ID;
-  const client = input.clientOverride || createInventoryDriveClient();
+  const result = await queryPropertyUnit({
+    area: input.areaName,
+    project: input.projectName,
+    unitNumber: input.unitNumber,
+    rootFolderId: input.rootFolderId,
+    clientOverride: input.clientOverride,
+  });
+  if (!result.found) throw new AppError(`Unit path "${result.queryKey}" not found (missing ${result.missingLevel})`, 404);
+  return result;
+}
 
-  const area = await findChildFolderByName(rootFolderId, input.areaName, client);
-  if (!area) throw new AppError(`Area "${input.areaName}" not found`, 404);
-  const project = await findChildFolderByName(area.id, input.projectName, client);
-  if (!project) throw new AppError(`Project "${input.projectName}" not found`, 404);
-  const unit = await findChildFolderByName(project.id, input.unitNumber, client);
-  if (!unit) throw new AppError(`Unit "${input.unitNumber}" not found`, 404);
-
-  const directChildren = await listChildNodes(unit.id, false, client);
-  const folders = directChildren.filter(c => c.mimeType === FOLDER_MIME);
-  const loosePhotos = directChildren.filter(c => IMAGE_MIMES.has(c.mimeType));
-  const looseDocuments = directChildren.filter(c => c.mimeType !== FOLDER_MIME && !IMAGE_MIMES.has(c.mimeType));
-
-  const sections: Record<string, DriveNode[]> = {};
-  for (const folder of folders) {
-    sections[folder.name] = await listChildNodes(folder.id, false, client);
-  }
+export async function auditAreaFormula(
+  areaName: string,
+  rootFolderId = DEFAULT_INVENTORY_ROOT_ID,
+  clientOverride?: { drive: drive_v3.Drive; email: string }
+) {
+  const client = clientOverride || createInventoryDriveClient();
+  const { area, projects } = await listProjectsInArea(areaName, rootFolderId, client);
+  const trailingSpaceProjects = projects.filter(p => p.name !== p.name.trim()).map(p => ({ id: p.id, name: p.name }));
+  const duplicateProjects = await detectDuplicateFolders(area.id, client);
 
   return {
-    path: `${area.name} / ${project.name} / ${unit.name}`,
-    unitFolderId: unit.id,
-    folders: folders.map(f => ({ id: f.id, name: f.name })),
-    sections,
-    loosePhotos,
-    looseDocuments,
+    area: { id: area.id, name: area.name, hasTrailingSpace: area.name !== area.name.trim() },
+    totalProjects: projects.length,
+    trailingSpaceProjects,
+    duplicateProjects: duplicateProjects.map(g => ({
+      normalizedName: g.normalizedName,
+      count: g.folders.length,
+      ids: g.folders.map(f => f.id),
+    })),
   };
 }
 
@@ -331,8 +633,7 @@ export async function uploadFileToUnitSubfolder(input: {
     projectName: input.projectName,
     unitNumber: input.unitNumber,
     rootFolderId: input.rootFolderId,
-    extraSubfolders:
-      input.subfolder in STANDARD_UNIT_SUBFOLDERS ? undefined : [input.subfolder],
+    extraSubfolders: input.subfolder in STANDARD_UNIT_SUBFOLDERS ? undefined : [input.subfolder],
     clientOverride: client,
   });
 
@@ -340,21 +641,15 @@ export async function uploadFileToUnitSubfolder(input: {
   if (!target) throw new AppError(`Target subfolder "${input.subfolder}" could not be resolved`, 400);
 
   const uploaded = await client.drive.files.create({
-    requestBody: {
-      name: input.fileName,
-      parents: [target.id],
-    },
-    media: {
-      mimeType: input.mimeType,
-      body: Readable.from(input.content),
-    },
+    requestBody: { name: input.fileName, parents: [target.id] },
+    media: { mimeType: input.mimeType, body: Readable.from(input.content) },
     fields: 'id,name,mimeType,webViewLink,thumbnailLink,size',
     supportsAllDrives: true,
   });
 
   return {
     file: uploaded.data,
-    destination: `${structure.area.name} / ${structure.project.name} / ${structure.unit.name} / ${target.name}`,
+    destination: `${structure.queryPath}/${target.name}`,
     folderId: target.id,
   };
 }
