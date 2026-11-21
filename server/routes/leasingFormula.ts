@@ -31,6 +31,11 @@ import {
   ensureTenancyStageFolders,
   TENANCY_CONTRACT_STAGE_SUBFOLDERS,
 } from '../services/henry/driveInventoryManager.js';
+import {
+  buildDaisyLeasingHierarchy,
+  OPEN_HUMAN_LEASING_POSITIONS,
+  TMS_LEASING_TASK_COLLECTIONS,
+} from '../services/leasing/daisyHierarchyAndTmsFormula.js';
 
 const router = Router();
 const db = prisma as any;
@@ -44,6 +49,40 @@ router.get('/blueprint', (_req, res) => {
       roleClearanceMatrix: ORG_ROLE_CLEARANCE_MATRIX,
       stages12: LEASING_12_STAGE_FORMULA,
       tenancyDriveStageSubfolders: TENANCY_CONTRACT_STAGE_SUBFOLDERS,
+      daisyHierarchySummary: buildDaisyLeasingHierarchy().counts,
+      openHumanPositionsCount: OPEN_HUMAN_LEASING_POSITIONS.length,
+      tmsLeasingTaskCollectionsCount: TMS_LEASING_TASK_COLLECTIONS.length,
+    },
+  });
+});
+
+router.get('/hierarchy/daisy-team', (_req, res) => {
+  res.json({
+    success: true,
+    data: buildDaisyLeasingHierarchy(),
+  });
+});
+
+router.get('/dms/open-positions', (_req, res) => {
+  res.json({
+    success: true,
+    data: {
+      departmentId: 'DEPT-05',
+      departmentName: 'Sales, Services & Operations',
+      director: 'AI Clara (DIR-05)',
+      manager: 'AI Daisy Leasing (MGR-05-2)',
+      openPositions: OPEN_HUMAN_LEASING_POSITIONS,
+    },
+  });
+});
+
+router.get('/tms/leasing-tasks', (_req, res) => {
+  res.json({
+    success: true,
+    data: {
+      domain: 'RESIDENTIAL_LEASING_OPERATIONS',
+      departmentId: 'DEPT-05',
+      collections: TMS_LEASING_TASK_COLLECTIONS,
     },
   });
 });

@@ -20,8 +20,47 @@ import {
   scheduleMdLeasingAppointment,
   scheduleTenancyRenewalCalendarMilestones,
 } from '../google/googleCalendarServiceAccount.js';
+import {
+  buildDaisyLeasingHierarchy,
+  OPEN_HUMAN_LEASING_POSITIONS,
+  TMS_LEASING_TASK_COLLECTIONS,
+} from './daisyHierarchyAndTmsFormula.js';
+import { ORG_ROLE_CLEARANCE_MATRIX } from '../rbac/leasingRoleClearanceMatrix.js';
 
 describe('White Caves 10-SIM Hunter/Closer, RBAC & 12-Stage Tenancy Formula', () => {
+  it('enforces full 8-tier authority chain (MD -> Zoe -> Clara DIR-05 -> Daisy MGR-05-2 -> 12 Asst Mgrs -> 108 Supervisors -> 1 Team Leader -> 10 Leasing Agents) + DMS & TMS sync', () => {
+    // 1. Only Managing Director is human-filled today
+    expect(ORG_ROLE_CLEARANCE_MATRIX.MANAGING_DIRECTOR.isHumanFilledToday).toBe(true);
+    expect(ORG_ROLE_CLEARANCE_MATRIX.DIRECTOR.reportsToRole).toBe('COO');
+    expect(ORG_ROLE_CLEARANCE_MATRIX.MANAGER.reportsToRole).toBe('DIRECTOR');
+    expect(ORG_ROLE_CLEARANCE_MATRIX.ASSISTANT_MANAGER.reportsToRole).toBe('MANAGER');
+    expect(ORG_ROLE_CLEARANCE_MATRIX.SUPERVISOR.reportsToRole).toBe('ASSISTANT_MANAGER');
+    expect(ORG_ROLE_CLEARANCE_MATRIX.TEAM_LEADER.reportsToRole).toBe('SUPERVISOR');
+    expect(ORG_ROLE_CLEARANCE_MATRIX.LEASING_AGENT.reportsToRole).toBe('TEAM_LEADER');
+
+    // 2. Daisy's 12 Assistant Managers -> 108 Supervisors (9 per Asst Mgr) -> 1 Team Leader -> 10 Leasing Agents
+    const tree = buildDaisyLeasingHierarchy();
+    expect(tree.managingDirector.name).toContain('Arslan Malik');
+    expect(tree.coo.code).toBe('WC-COO-01');
+    expect(tree.department.deptCode).toBe('DEPT-05');
+    expect(tree.department.director.code).toBe('DIR-05');
+    expect(tree.department.director.reportingToId).toBe('zoe');
+    expect(tree.department.leasingManager.code).toBe('MGR-05-2');
+    expect(tree.department.leasingManager.reportingToId).toBe('clara');
+    expect(tree.counts.assistantManagers).toBe(12);
+    expect(tree.counts.supervisors).toBe(108);
+    expect(tree.assistantManagers.every(am => am.supervisors.length === 9)).toBe(true);
+    expect(tree.counts.teamLeaders).toBe(1);
+    expect(tree.teamLeader.reportingToId).toBe('sup-05-2-01-1');
+    expect(tree.counts.leasingAgents).toBe(10);
+    expect(tree.leasingAgents.every(a => a.reportingToId === 'tl-05-2-01')).toBe(true);
+
+    // 3. DMS Open Human Job Positions & TMS Labeled Task Collections
+    expect(OPEN_HUMAN_LEASING_POSITIONS.length).toBe(6);
+    expect(OPEN_HUMAN_LEASING_POSITIONS.every(p => p.dmsDraggable && p.departmentCode === 'DEPT-05')).toBe(true);
+    expect(TMS_LEASING_TASK_COLLECTIONS.length).toBe(6);
+    expect(TMS_LEASING_TASK_COLLECTIONS.every(c => c.assignedAiActorId && c.humanFallbackActor.includes('Arslan Malik'))).toBe(true);
+  });
   it('enforces 10-SIM Hunter/Closer separation and future employee SIM onboarding', () => {
     expect(getAllSimLines().length).toBeGreaterThanOrEqual(10);
 
