@@ -653,3 +653,49 @@ export async function uploadFileToUnitSubfolder(input: {
     folderId: target.id,
   };
 }
+
+export const TENANCY_CONTRACT_STAGE_SUBFOLDERS = {
+  offersAndApprovals: '01_Offer_&_Approvals',
+  chequesAndReceipts: '02_Cheques_&_Receipts',
+  signedContracts: '03_Signed_Contracts',
+  ejariAndDewa: '04_Ejari_&_DEWA',
+} as const;
+
+/**
+ * Creates canonical stage-by-stage Tenancy Contract folders inside:
+ * Inventory Areas / <Area> / <Project> / <Unit Number> / Tenancy Contract / <Year>_<NEW|RENEWAL> / [4 Stage Subfolders]
+ */
+export async function ensureTenancyStageFolders(input: {
+  areaName: string;
+  projectName: string;
+  unitNumber: string;
+  contractYear: string | number;
+  contractMode: 'NEW' | 'RENEWAL';
+  rootFolderId?: string;
+  clientOverride?: { drive: drive_v3.Drive; email: string };
+}) {
+  const client = input.clientOverride || createInventoryDriveClient();
+  const structure = await ensureUnitStructure({
+    areaName: input.areaName,
+    projectName: input.projectName,
+    unitNumber: input.unitNumber,
+    rootFolderId: input.rootFolderId,
+    clientOverride: client,
+  });
+
+  const cycleFolderName = `${String(input.contractYear).trim()}_${input.contractMode}`;
+  const cycleFolder = await ensureFolder(structure.subfolders.tenancyContract.id, cycleFolderName, client);
+
+  const stageFolders: Record<string, { id: string; name: string }> = {};
+  for (const [key, name] of Object.entries(TENANCY_CONTRACT_STAGE_SUBFOLDERS)) {
+    const ensured = await ensureFolder(cycleFolder.id, name, client);
+    stageFolders[key] = { id: ensured.id, name: ensured.name };
+  }
+
+  return {
+    unitQueryPath: structure.queryPath,
+    cyclePath: `${structure.queryPath}/Tenancy Contract/${cycleFolder.name}`,
+    cycleFolderId: cycleFolder.id,
+    stageFolders,
+  };
+}

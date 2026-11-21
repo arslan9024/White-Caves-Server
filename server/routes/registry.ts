@@ -28,6 +28,7 @@ import lindaRoutes from './linda.js';
 import lindaProxyRoutes from './linda-proxy.js';
 import sanctumRoutes from './sanctum.js';
 import daisyRoutes from './daisy.js';
+import leasingFormulaRoutes from './leasingFormula.js';
 import metaWebhookRoutes from './meta-webhook.js';
 import favoritesRoutes from './favorites.js';
 import orchestratorRoutes from './orchestrator.js';
@@ -308,4 +309,7 @@ export function mountDomainRoutes(app: Express): void {
 
   // Daisy Residential Leasing, AI Listing Web Crawler, Ejari Drafts, Receipts & 90-Day Renewals
   app.use('/api/daisy', authMiddleware, daisyRoutes);
+
+  // Sovereign 10-SIM Hunter/Closer, RBAC Clearance, 12-Stage Tenancy Lifecycle & MD Calendar Formula
+  app.use('/api/leasing-formula', authMiddleware, leasingFormulaRoutes);
 }

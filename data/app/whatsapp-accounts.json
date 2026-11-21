@@ -1,143 +1,19 @@
 {
   "accounts": [
-    {
-      "id": "acc-001",
-      "phoneNumber": "+971505760056",
-      "sessionId": "session-971505760056",
-      "displayName": "Primary Master: Arslan Malik",
-      "role": "master",
-      "status": "ready_to_pair",
-      "linkedAt": "2026-02-11T10:00:00Z",
-      "lastActive": "2026-11-20T16:00:00Z",
-      "hourlyLimit": 20,
-      "features": {
-        "messaging": true,
-        "propertyDetection": true,
-        "inquiryTracking": true,
-        "conversationLearning": true,
-        "dealTracking": true,
-        "agentCommission": true
-      },
-      "statistics": {
-        "messagesProcessed": 1234,
-        "propertiesFound": 45,
-        "inquiriesTracked": 78,
-        "matchesSuggested": 23,
-        "dealsActive": 3,
-        "dealsClosed": 5
-      }
-    },
-    {
-      "id": "acc-002",
-      "phoneNumber": "+971503869886",
-      "sessionId": "session-971503869886",
-      "displayName": "Master Desk 2 (DH2 Landlords)",
-      "role": "master",
-      "status": "ready_to_pair",
-      "linkedAt": "2026-02-14T10:00:00Z",
-      "lastActive": "2026-11-20T16:00:00Z",
-      "hourlyLimit": 20,
-      "features": {
-        "messaging": true,
-        "propertyDetection": true,
-        "inquiryTracking": true,
-        "conversationLearning": true,
-        "dealTracking": true,
-        "agentCommission": true
-      },
-      "statistics": {
-        "messagesProcessed": 0,
-        "propertiesFound": 0,
-        "inquiriesTracked": 0,
-        "matchesSuggested": 0,
-        "dealsActive": 0,
-        "dealsClosed": 0
-      }
-    },
-    {
-      "id": "acc-003",
-      "phoneNumber": "+971505110636",
-      "sessionId": "session-971505110636",
-      "displayName": "Master Line 3 (DH2 Tenants)",
-      "role": "master",
-      "status": "ready_to_pair",
-      "linkedAt": "2026-02-14T10:00:00Z",
-      "lastActive": "2026-11-20T16:00:00Z",
-      "hourlyLimit": 20,
-      "features": {
-        "messaging": true,
-        "propertyDetection": true,
-        "inquiryTracking": true,
-        "conversationLearning": true,
-        "dealTracking": true,
-        "agentCommission": true
-      },
-      "statistics": {
-        "messagesProcessed": 0,
-        "propertiesFound": 0,
-        "inquiriesTracked": 0,
-        "matchesSuggested": 0,
-        "dealsActive": 0,
-        "dealsClosed": 0
-      }
-    },
-    {
-      "id": "acc-004",
-      "phoneNumber": "+971589969886",
-      "sessionId": "session-971589969886",
-      "displayName": "Employee Desk (Leasing Viewings)",
-      "role": "employee",
-      "status": "ready_to_pair",
-      "linkedAt": "2026-02-14T10:00:00Z",
-      "lastActive": "2026-11-20T16:00:00Z",
-      "hourlyLimit": 20,
-      "features": {
-        "messaging": true,
-        "propertyDetection": true,
-        "inquiryTracking": true,
-        "conversationLearning": true,
-        "dealTracking": true,
-        "agentCommission": false
-      },
-      "statistics": {
-        "messagesProcessed": 0,
-        "propertiesFound": 0,
-        "inquiriesTracked": 0,
-        "matchesSuggested": 0,
-        "dealsActive": 0,
-        "dealsClosed": 0
-      }
-    },
-    {
-      "id": "acc-005",
-      "phoneNumber": "+971553633595",
-      "sessionId": "session-971553633595",
-      "displayName": "Servant & Outreach Line (Campaigns)",
-      "role": "servant",
-      "status": "ready_to_pair",
-      "linkedAt": "2026-02-14T10:00:00Z",
-      "lastActive": "2026-11-20T16:00:00Z",
-      "hourlyLimit": 20,
-      "features": {
-        "messaging": true,
-        "propertyDetection": true,
-        "inquiryTracking": true,
-        "conversationLearning": false,
-        "dealTracking": false,
-        "agentCommission": false
-      },
-      "statistics": {
-        "messagesProcessed": 0,
-        "propertiesFound": 0,
-        "inquiriesTracked": 0,
-        "matchesSuggested": 0,
-        "dealsActive": 0,
-        "dealsClosed": 0
-      }
-    }
+    { "id": "sim-01-master", "phoneNumber": "+971505760056", "sessionId": "session-971505760056", "displayName": "Primary Master Closer — Arslan Malik (MD)", "role": "master", "simTier": "PRIMARY_MASTER_CLOSER", "hourlyLimit": 25, "status": "ready_to_pair" },
+    { "id": "sim-02-hunter", "phoneNumber": "+971503869886", "sessionId": "session-971503869886", "displayName": "Hunter SIM 02 — DH2 Discovery", "role": "servant", "simTier": "HUNTER_OUTREACH", "hourlyLimit": 18, "status": "ready_to_pair" },
+    { "id": "sim-03-hunter", "phoneNumber": "+971505110636", "sessionId": "session-971505110636", "displayName": "Hunter SIM 03 — DH2 Discovery", "role": "servant", "simTier": "HUNTER_OUTREACH", "hourlyLimit": 18, "status": "ready_to_pair" },
+    { "id": "sim-04-hunter", "phoneNumber": "+971589969886", "sessionId": "session-971589969886", "displayName": "Hunter SIM 04 — DH2 Discovery", "role": "servant", "simTier": "HUNTER_OUTREACH", "hourlyLimit": 18, "status": "ready_to_pair" },
+    { "id": "sim-05-hunter", "phoneNumber": "+971553633595", "sessionId": "session-971553633595", "displayName": "Hunter SIM 05 — DH2 Discovery", "role": "servant", "simTier": "HUNTER_OUTREACH", "hourlyLimit": 18, "status": "ready_to_pair" },
+    { "id": "sim-06-hunter", "phoneNumber": "+971559156636", "sessionId": "session-971559156636", "displayName": "Hunter SIM 06 — DH2 Discovery", "role": "servant", "simTier": "HUNTER_OUTREACH", "hourlyLimit": 18, "status": "ready_to_pair" },
+    { "id": "sim-07-hunter", "phoneNumber": "+971505845825", "sessionId": "session-971505845825", "displayName": "Hunter SIM 07 — DH2 Discovery", "role": "servant", "simTier": "HUNTER_OUTREACH", "hourlyLimit": 18, "status": "ready_to_pair" },
+    { "id": "sim-08-hunter", "phoneNumber": "+971507160096", "sessionId": "session-971507160096", "displayName": "Hunter SIM 08 — DH2 Discovery", "role": "servant", "simTier": "HUNTER_OUTREACH", "hourlyLimit": 18, "status": "ready_to_pair" },
+    { "id": "sim-09-hunter", "phoneNumber": "+971553498722", "sessionId": "session-971553498722", "displayName": "Hunter SIM 09 — DH2 Discovery", "role": "servant", "simTier": "HUNTER_OUTREACH", "hourlyLimit": 18, "status": "ready_to_pair" },
+    { "id": "sim-10-hunter", "phoneNumber": "+971567160096", "sessionId": "session-971567160096", "displayName": "Hunter SIM 10 — DH2 Discovery", "role": "servant", "simTier": "HUNTER_OUTREACH", "hourlyLimit": 18, "status": "ready_to_pair" }
   ],
-  "masterAccount": "acc-001",
-  "totalAccounts": 5,
-  "lastUpdated": "2026-11-20T16:35:00Z",
-  "version": "2.0.0"
+  "masterAccount": "sim-01-master",
+  "totalAccounts": 10,
+  "policy": "1 Primary Master Closer (Follow-up & Negotiation ONLY) + 9 Hunter SIMs (Landlord Availability Discovery ONLY)",
+  "lastUpdated": "2026-11-21T06:45:00Z",
+  "version": "3.0.0"
 }
