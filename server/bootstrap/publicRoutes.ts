@@ -8,6 +8,7 @@ import graphqlRoutes from '../routes/graphql.js';
 import contactRoutes from '../routes/contact.js';
 import aiChatRoutes from '../routes/aiChat.js';
 import sitemapRoutes from '../routes/sitemap.js';
+import publicLeasingRoutes from '../routes/publicLeasing.js';
 import { cacheService } from '../services/CacheService.js';
 import { isAuthenticationRequired } from '../config/authenticationPolicy.js';
 
@@ -147,6 +148,9 @@ export function mountPublicRoutes(app: Express): void {
 
   // Contact / Lead-from-homepage API (public — no auth required)
   app.use('/api/contact', contactRoutes);
+
+  // Public Rental Storefront & Lead Inquiry API (public — strictly sanitized DTOs)
+  app.use('/api/public', publicLeasingRoutes);
 
   // GraphQL compatibility endpoints
   app.use('/graphql', graphqlRoutes);

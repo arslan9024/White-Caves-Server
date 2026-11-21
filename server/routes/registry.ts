@@ -93,6 +93,7 @@ import whatsappEngineRoutes from './whatsapp.js';
 import { pushRoutes } from './push.js';
 import oqoodRouter from './oqood.js';
 import pdcRouter from './pdc.js';
+import leasingOpsRoutes from './leasingOps.js';
 
 /**
  * Mounts every protected domain route onto the Express app.
@@ -312,4 +313,7 @@ export function mountDomainRoutes(app: Express): void {
 
   // Sovereign 10-SIM Hunter/Closer, RBAC Clearance, 12-Stage Tenancy Lifecycle & MD Calendar Formula
   app.use('/api/leasing-formula', authMiddleware, leasingFormulaRoutes);
+
+  // Unified End-to-End Leasing Operations API (Leads, Viewings, Contract Closing, Linda Takeover & Slash Commands)
+  app.use('/api/leasing', leasingOpsRoutes);
 }

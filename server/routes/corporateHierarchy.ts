@@ -1,13 +1,14 @@
 /**
  * White Caves Real Estate LLC - Corporate Hierarchy & Tasks API Routes
- * Standard: AEGIS Canonical 7-Category Architecture Standard (Server Route)
+ * Standard: AEGIS 12-Way Mary Allen Wilkes Standard (Server Route)
  * Single Purpose File Law: < 350 lines
- * Protocol: Turing Protocol & Bhakti Protocol
+ * Protocol: Turing Protocol & Bhakti 1-12-108 Repeating Fractal Protocol
  */
 
 import { Router, Request, Response } from 'express';
 import { asyncHandler, AppError } from '../middleware/errorHandler.js';
 import { requirePermission } from '../middleware/rbac.js';
+import corporateHierarchyBhaktiRouter from './corporateHierarchyBhakti.js';
 
 const router = Router();
 
@@ -28,6 +29,8 @@ interface TaskRecord {
   reportingChain: {
     supervisorName: string;
     supervisorCode: string;
+    assistantManagerName?: string;
+    assistantManagerCode?: string;
     managerName: string;
     managerCode: string;
     directorName: string;
@@ -319,5 +322,7 @@ router.get(
     });
   })
 );
+
+router.use(corporateHierarchyBhaktiRouter);
 
 export default router;

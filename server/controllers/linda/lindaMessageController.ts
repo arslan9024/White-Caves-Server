@@ -156,40 +156,11 @@ export const webhookIngestion = async (_req: Request, res: Response) => {
   }
 };
 
-export const getConversations = async (req: Request, res: Response) => {
+export const getConversations = async (_req: Request, res: Response) => {
   try {
-    const accountPhone = req.query.accountPhone ? String(req.query.accountPhone) : '';
-    const lindaBotUrl = process.env.LINDA_BOT_URL || 'http://localhost:5000';
-
-    try {
-      const url = accountPhone
-        ? `${lindaBotUrl}/api/linda/conversations?accountPhone=${encodeURIComponent(accountPhone)}`
-        : `${lindaBotUrl}/api/linda/conversations`;
-      const liveRes = await fetch(url, { signal: AbortSignal.timeout(2500) });
-      if (liveRes.ok) {
-        const liveJson = (await liveRes.json()) as {
-          success?: boolean;
-          data?: { conversations?: unknown[]; accounts?: string[] };
-        };
-        if (liveJson?.success && Array.isArray(liveJson?.data?.conversations)) {
-          return res.json({
-            success: true,
-            data: {
-              conversations: liveJson.data.conversations,
-              count: liveJson.data.conversations.length,
-              accounts: liveJson.data.accounts || [],
-              source: 'live-bot',
-            },
-          });
-        }
-      }
-    } catch {
-      // Fall back to in-process messageBridge when live bot HTTP server is offline
-    }
-
     const { messageBridge } = await getOrInitLindaRuntime();
     const conversations = await messageBridge.getConversations();
-    res.json({ success: true, data: { conversations, count: conversations.length, source: 'bridge' } });
+    res.json({ success: true, data: { conversations, count: conversations.length, source: 'in-process' } });
   } catch (err) {
     res
       .status(500)
@@ -201,41 +172,11 @@ export const getConversationHistory = async (req: Request, res: Response) => {
   try {
     const { phoneNumber } = req.params as Record<string, string>;
     const limit = req.query.limit ? parseInt(req.query.limit as string) : 50;
-    const accountPhone = req.query.accountPhone ? String(req.query.accountPhone) : '';
-    const lindaBotUrl = process.env.LINDA_BOT_URL || 'http://localhost:5000';
-
-    try {
-      const qs = new URLSearchParams({ limit: String(limit) });
-      if (accountPhone) qs.set('accountPhone', accountPhone);
-      const liveRes = await fetch(
-        `${lindaBotUrl}/api/linda/conversations/${encodeURIComponent(phoneNumber)}/history?${qs.toString()}`,
-        { signal: AbortSignal.timeout(2500) }
-      );
-      if (liveRes.ok) {
-        const liveJson = (await liveRes.json()) as {
-          success?: boolean;
-          data?: { messages?: unknown[] };
-        };
-        if (liveJson?.success && Array.isArray(liveJson?.data?.messages)) {
-          return res.json({
-            success: true,
-            data: {
-              phoneNumber,
-              messages: liveJson.data.messages,
-              count: liveJson.data.messages.length,
-              source: 'live-bot',
-            },
-          });
-        }
-      }
-    } catch {
-      // Fall back to in-process messageBridge
-    }
 
     const { messageBridge } = await getOrInitLindaRuntime();
     const history = await messageBridge.getConversationHistory(phoneNumber, limit);
 
-    res.json({ success: true, data: { phoneNumber, messages: history, count: history.length, source: 'bridge' } });
+    res.json({ success: true, data: { phoneNumber, messages: history, count: history.length, source: 'in-process' } });
   } catch (err) {
     res
       .status(500)

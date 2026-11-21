@@ -210,17 +210,27 @@ model BudgetTarget {
 
 model Property {
   id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  slug        String?  @unique // SEO-friendly URL slug (e.g., "3br-villa-camelia-damac-hills-2")
   title       String
   description String?
+  purpose     String   @default("RENT") // RENT | SALE
   type        String   @default("apartment") // villa, apartment, penthouse, commercial, land, townhouse
-  status      String   @default("available") // available, reserved, sold, rented, off_market
+  status      String   @default("available") // available | AVAILABLE | reserved | RESERVED | leased | LEASED | sold | rented | off_market
   price       Float
   currency    String   @default("AED") // AED, USD, EUR, GBP, INR
   bedrooms    Int      @default(0)
   bathrooms   Int      @default(0)
   sqft        Int      @default(0)
+  areaSqFt    Int?     // Explicit leasing alias for sqft
   location    String
   area        String?
+  community   String?  // Public community name (e.g. "DAMAC Hills 2")
+  subCommunity String? // Public sub-community / cluster (e.g. "Camelia")
+  annualRentAed Float? // Annual rent in AED
+  chequesCount  Int?   @default(4) // 1, 2, 4, 6, 12 cheques
+  securityDepositAed Float? // Security deposit in AED
+  landlordProfileId String? @db.ObjectId
+  assignedAgentId   String? @db.ObjectId
   amenities   String[]
   images      String[]
   featured    Boolean  @default(false)
@@ -287,6 +297,7 @@ model Property {
   commissions         Commission[]
   favorites           Favorite[]
   viewings            Viewing[]
+  viewingAppointments ViewingAppointment[]
   offers              Offer[]
   leases              Lease[]
   maintenanceRequests Maintenance[]
@@ -314,11 +325,14 @@ model Property {
 model Lead {
   id                 String    @id @default(auto()) @map("_id") @db.ObjectId
   name               String
+  tenantName         String?   // Explicit leasing alias for tenant name
   email              String?
+  tenantEmail        String?   // Explicit leasing alias for tenant email
   phone              String?
+  tenantPhone        String?   // Normalized E.164 phone for leasing
   company            String?
-  status             String    @default("new") // new, contacted, qualified, hot, warm, cold, won, lost
-  source             String    @default("direct") // whatsapp, website, phone, referral, marketing, direct
+  status             String    @default("new") // new, NEW, CONTACTED, VIEWING_SCHEDULED, VIEWING_COMPLETED, OFFER_MADE, CONTRACT_DRAFTED, CLOSED_WON, CLOSED_LOST
+  source             String    @default("direct") // WEB_INQUIRY, WHATSAPP_LINDA, MOBILE_FIELD, PORTAL, whatsapp, website, direct
   budget             Float?
   budgetCurrency     String    @default("AED") // AED, USD, EUR, GBP, INR
   score              Int       @default(0) // 0-100 lead score
@@ -332,6 +346,7 @@ model Lead {
   dealType           String    @default("lease") // lease, sale, buy
   leasingStage       Int       @default(1) // 1=Lead Acquisition, 2=Matching, 3=Viewing, 4=Offer, 5=Decision, 6=Deposit, 7=Contract, 8=Handover, 9=Payment, 10=PnL
   tenantRequirements Json? // { bedrooms, furnishing, maxRent, preferredArea, petPolicy, smokingPolicy, parking, community, moveInDate }
+  assignedAgentId    String?   @db.ObjectId
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
 
@@ -346,6 +361,7 @@ model Lead {
   transactions      Transaction[]
   commissions       Commission[]
   viewings          Viewing[]
+  viewingAppointments ViewingAppointment[]
   offers            Offer[]
   followUpSequences FollowUpSequence[]
 
@@ -2298,25 +2314,58 @@ model Landlord {
 }
 
 model TenancyContract {
-  id               String                @id @default(auto()) @map("_id") @db.ObjectId
-  contractNumber   String                @unique
-  leaseStart       DateTime
-  leaseEnd         DateTime
-  annualRentAED    Float
-  commissionAmount Float
-  status           String                @default("DRAFT") // DRAFT | ATTESTED_EJARI | ACTIVE | EXPIRED | TERMINATED
-  tenantId         String                @db.ObjectId
-  tenant           Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  propertyId       String                @db.ObjectId
-  property         Property              @relation(fields: [propertyId], references: [id], onDelete: Cascade)
-  financialLogs    FinancialReceiptLog[] // Composition link: Cascade delete child logs
-  taskRecords      TaskNodeRecord[]
-  createdAt        DateTime              @default(now())
-  updatedAt        DateTime              @updatedAt
+  id                String                @id @default(auto()) @map("_id") @db.ObjectId
+  contractNumber    String                @unique
+  leaseStart        DateTime
+  leaseEnd          DateTime
+  startDate         DateTime?             // Canonical leasing field
+  endDate           DateTime?             // Canonical leasing field
+  annualRentAED     Float
+  annualRentAed     Float?                // Canonical leasing field
+  commissionAmount  Float
+  chequesSchedule   Json?                 // Array of { installment, chequeNumber, amountAed, dueDate, status }
+  ejariNumber       String?
+  documents         String[]              @default([])
+  landlordProfileId String?               @db.ObjectId
+  tenantProfileId   String?               @db.ObjectId
+  agentId           String?               @db.ObjectId
+  status            String                @default("DRAFT") // DRAFT | SIGNED | ATTESTED_EJARI | ACTIVE | EXPIRED | TERMINATED
+  tenantId          String?               @db.ObjectId
+  tenant            Tenant?               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  propertyId        String                @db.ObjectId
+  property          Property              @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  financialLogs     FinancialReceiptLog[] // Composition link: Cascade delete child logs
+  taskRecords       TaskNodeRecord[]
+  createdAt         DateTime              @default(now())
+  updatedAt         DateTime              @updatedAt
 
   @@index([status])
   @@index([tenantId])
   @@index([propertyId])
+  @@index([landlordProfileId])
+  @@index([tenantProfileId])
+  @@index([agentId])
+}
+
+model ViewingAppointment {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  leadId      String   @db.ObjectId
+  lead        Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  propertyId  String   @db.ObjectId
+  property    Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  agentId     String?  @db.ObjectId
+  scheduledAt DateTime
+  status      String   @default("REQUESTED") // REQUESTED | CONFIRMED | RESCHEDULED | COMPLETED | NO_SHOW
+  feedback    String?
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([leadId])
+  @@index([propertyId])
+  @@index([agentId])
+  @@index([scheduledAt])
+  @@index([status])
 }
 
 model FinancialReceiptLog {

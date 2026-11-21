@@ -101,6 +101,26 @@ const ALLOWED_STATIC_ORIGINS: readonly string[] = [
   'https://api.whitecaves.com',
 ];
 
+function isDynamicTrustedOrigin(origin: string): boolean {
+  try {
+    const parsed = new URL(origin);
+    const host = parsed.hostname.toLowerCase();
+    return (
+      host === 'whitecaves.com' ||
+      host.endsWith('.whitecaves.com') ||
+      host === 'whitecaves.ae' ||
+      host.endsWith('.whitecaves.ae') ||
+      host.endsWith('.vercel.app') ||
+      host.endsWith('.trycloudflare.com') ||
+      host === 'localhost' ||
+      host === '127.0.0.1' ||
+      host.endsWith('.localhost')
+    );
+  } catch {
+    return false;
+  }
+}
+
 export function isCorsOriginAllowed(
   origin: string | undefined,
   allowedOrigins: readonly string[],
@@ -117,6 +137,10 @@ export function isCorsOriginAllowed(
   }
 
   if (requestOrigin && normalizedOrigin === requestOrigin) {
+    return true;
+  }
+
+  if (isDynamicTrustedOrigin(normalizedOrigin)) {
     return true;
   }
 

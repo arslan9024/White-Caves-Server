@@ -253,11 +253,11 @@ export async function generatePerfectListing(input: {
   let drivePhotos: string[] = [];
   if (input.attachDrivePhotos !== false && input.area && input.project && input.unitNumber) {
     try {
-      const unitData = await queryPropertyUnit({
+      const unitData = (await queryPropertyUnit({
         area: input.area,
         project: input.project,
         unitNumber: input.unitNumber,
-      });
+      })) as { found: boolean; photoUrls?: string[] };
       if (unitData.found && Array.isArray(unitData.photoUrls)) {
         drivePhotos = unitData.photoUrls;
       }

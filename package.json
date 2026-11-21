@@ -11,6 +11,7 @@
     "dev:dashboard": "cross-env LINDA_TERMINAL_DASHBOARD=true tsx watch server/index.ts",
     "start:dashboard": "cross-env LINDA_TERMINAL_DASHBOARD=true tsx server/index.ts",
     "start": "tsx server/index.ts",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
     "build": "tsc -p tsconfig.json",
     "prisma:generate": "prisma generate",
     "prisma:push": "prisma db push",

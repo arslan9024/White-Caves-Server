@@ -8,14 +8,30 @@
  */
 
 import { Router, Request, Response } from 'express';
-import os from 'os';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import { prisma } from '../database.js';
 import { logger } from '../utils/logger.js';
 import { requireInternalToken } from '../middleware/internalAuth.js';
 
 const router = Router();
+const AEGIS_ROOT = path.resolve(process.cwd(), '..', 'Aegis-Sterling');
 
-const POLICY_VERSION = '2026.09.11-aegis-v4-token-preservation-v1';
+function readAegisJson<T>(...parts: string[]): T | null {
+  try {
+    const file = path.join(AEGIS_ROOT, ...parts);
+    if (!fs.existsSync(file)) return null;
+    return JSON.parse(fs.readFileSync(file, 'utf8')) as T;
+  } catch {
+    return null;
+  }
+}
+
+function getLivePolicyVersion(): string {
+  const policy = readAegisJson<{ version?: string }>('.agents', 'orchestrator', 'policy.json');
+  return policy?.version ?? '2026.11.21-aegis-v5.1-ts-sovereign';
+}
 const DEPARTMENTS_12 = [
   {
     id: 'sales',
@@ -124,10 +140,14 @@ router.get('/telemetry', async (_req: Request, res: Response) => {
     dbStatus = 'DEGRADED';
   }
 
+  const gatesReport = readAegisJson<{ overallPassed?: boolean; runAt?: string }>('engines', 'orchestrator', 'logs', 'verification-gates-report.json');
+  const scanReport = readAegisJson<{ totalFindings?: number; totalFilesScanned?: number; generatedAt?: string }>('engines', 'orchestrator', 'logs', 'aegis-scan-report.json');
+  const gateStatus = gatesReport == null ? 'UNVERIFIED' : gatesReport.overallPassed ? 'PASSED' : 'FAILED';
+
   const payload = {
     success: true,
-    engine: 'AEGIS V5 Omni-Orchestrator',
-    policyVersion: POLICY_VERSION,
+    engine: 'AEGIS V5.1 Omni-Orchestrator',
+    policyVersion: getLivePolicyVersion(),
     timestamp: new Date().toISOString(),
     uptimeSeconds: Math.floor(process.uptime()),
     system: {
@@ -145,19 +165,24 @@ router.get('/telemetry', async (_req: Request, res: Response) => {
       totalUsers,
     },
     mesh112108: {
-      hierarchy: '1 Founder / MD | 12 Department Managers | 108 Department Supervisors',
+      hierarchy:
+        '1 MD -> 12 Directors -> 108 Managers (9/Dir) -> 1,296 Assistant Managers (12/Mgr) -> 11,664 Supervisors (9/AM) -> Manual Teams & Employees',
       founderEmail: 'arslanmalikgoraha@gmail.com',
       sovereignBypass: 'ACTIVE',
       totalAgents: 121,
+      fixedFractalSeatsTotal: 13081,
+      fractalStopBoundary: 'SUPERVISOR',
+      manualCrudTiers: ['TEAM_LEADER', 'EMPLOYEE'],
       departments: DEPARTMENTS_12,
       averageSlaMinutes: 4.7,
       slaComplianceRate: '99.4%',
       activeAssistants: ['Linda', 'Nadia', 'Nina', 'Mary', 'Henry'],
     },
     performanceGates: {
-      vitePwaBuild: '100% CLEAN',
-      governanceValidation: 'PASSED',
-      unitTestGates: '100% GREEN',
+      verificationGates: gateStatus,
+      lastGateRunAt: gatesReport?.runAt ?? null,
+      lastScanFiles: scanReport?.totalFilesScanned ?? 0,
+      lastScanFindings: scanReport?.totalFindings ?? null,
       ocrEngine: 'Tesseract.js v7 Active',
     },
   };
@@ -168,7 +193,7 @@ router.get('/telemetry', async (_req: Request, res: Response) => {
 router.get('/health', (_req: Request, res: Response) => {
   res.status(200).json({
     status: 'PASS',
-    policyVersion: POLICY_VERSION,
+    policyVersion: getLivePolicyVersion(),
     zeroBacklogGate: 'VERIFIED',
     accelerationGain: '300%',
   });
