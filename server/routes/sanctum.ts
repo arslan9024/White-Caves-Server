@@ -18,6 +18,7 @@
 import { Router, Request, Response } from 'express';
 import { v4 as uuidv4 } from 'uuid';
 import {
+  AgentNode,
   getAllSanctumAgents,
   getSanctumAgentById,
   SANCTUM_DEPARTMENTS,
@@ -29,6 +30,13 @@ import {
 } from '../../src/agents/engine/AgentRunner.js';
 
 const router = Router();
+const standbyManagers: AgentNode[] = [];
+const AEGIS_ENGINEERING_NAMES = new Set(['aegis', 'ada', 'nova', 'orion', 'gwynne', 'grace', 'turing', 'sterling']);
+
+function violatesTeamSeparation(name: string): boolean {
+  const tokens = name.toLowerCase().replace(/[^a-z\s]/g, ' ').split(/\s+/).filter(Boolean);
+  return tokens.some(t => AEGIS_ENGINEERING_NAMES.has(t));
+}
 
 // ── GET /api/sanctum/health ──────────────────────────────────────────────────
 router.get('/health', (_req: Request, res: Response) => {
@@ -166,6 +174,149 @@ router.post('/bridge/:agentId', async (req: Request, res: Response) => {
     const msg = err instanceof Error ? err.message : String(err);
     return res.status(500).json({ error: msg });
   }
+});
+
+// ── GET /api/sanctum/standby ─────────────────────────────────────────────────
+router.get('/standby', (_req: Request, res: Response) => {
+  res.json({ standby: standbyManagers, total: standbyManagers.length });
+});
+
+// ── POST /api/sanctum/managers (AIAMS CRUD — 12 Locked Depts + Female-Except-Henry) ─
+router.post('/managers', (req: Request, res: Response) => {
+  const { departmentCode, name, roleTitle, gender = 'Female', capabilities = [], slaResponseMinutes = 15 } =
+    req.body as Partial<AgentNode> & { departmentCode?: string };
+
+  if (!departmentCode || !name || !roleTitle) {
+    return res.status(400).json({ error: 'departmentCode, name, and roleTitle are required' });
+  }
+  const dept = SANCTUM_DEPARTMENTS.find(d => d.deptCode === departmentCode);
+  if (!dept) {
+    return res.status(400).json({ error: `Department '${departmentCode}' is invalid — the 12 Sanctum departments are locked.` });
+  }
+  if (violatesTeamSeparation(name)) {
+    return res.status(400).json({ error: "Aegis engineering names cannot be added to Zoe's Team (AICC-Sanctum)." });
+  }
+  if (gender !== 'Female') {
+    return res.status(400).json({ error: 'All AICC-Sanctum agents must be female-named except sole male officer Henry (MGR-11-1).' });
+  }
+
+  const slot = dept.managers.length + 1;
+  const id = `${name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}-${Date.now().toString(36).slice(-4)}`;
+  const manager: AgentNode = {
+    id,
+    code: `MGR-${departmentCode.replace('DEPT-', '')}-${slot}`,
+    name: name.trim(),
+    gender: 'Female',
+    tier: 'MANAGER',
+    roleTitle: roleTitle.trim(),
+    departmentCode: dept.deptCode,
+    slot,
+    reportingTo: dept.director.id,
+    allowedTools: ['sanctum_task'],
+    systemPrompt: `You are ${name.trim()}, ${roleTitle.trim()} in ${dept.name} (AICC-Sanctum).`,
+    capabilities: Array.isArray(capabilities) ? capabilities.map(String) : [],
+    slaResponseMinutes: Number(slaResponseMinutes) || 15,
+  };
+  dept.managers.push(manager);
+  return res.status(201).json({ manager, departmentCode: dept.deptCode });
+});
+
+// ── PATCH /api/sanctum/managers/:id ──────────────────────────────────────────
+router.patch('/managers/:id', (req: Request, res: Response) => {
+  const id = String(req.params.id);
+  const body = req.body as Partial<AgentNode>;
+
+  for (const dept of SANCTUM_DEPARTMENTS) {
+    const mgr = dept.managers.find(m => m.id === id);
+    if (!mgr) continue;
+    if (body.name && violatesTeamSeparation(body.name)) {
+      return res.status(400).json({ error: "Aegis engineering names cannot be assigned to Zoe's Team." });
+    }
+    if (body.gender === 'Male' && mgr.id !== 'henry') {
+      return res.status(400).json({ error: 'Only Henry (MGR-11-1) may have Male persona in AICC-Sanctum.' });
+    }
+    if (body.name) mgr.name = body.name.trim();
+    if (body.roleTitle) mgr.roleTitle = body.roleTitle.trim();
+    if (Array.isArray(body.capabilities)) mgr.capabilities = body.capabilities.map(String);
+    if (typeof body.slaResponseMinutes === 'number') mgr.slaResponseMinutes = body.slaResponseMinutes;
+    return res.json({ manager: mgr });
+  }
+  return res.status(404).json({ error: `Manager '${id}' not found` });
+});
+
+// ── DELETE /api/sanctum/managers/:id (Zero-Data-Loss Move to Standby) ────────
+router.delete('/managers/:id', (req: Request, res: Response) => {
+  const id = String(req.params.id);
+  if (id === 'zoe' || id === 'henry') {
+    return res.status(403).json({ error: `Protected sovereign officer '${id}' cannot be removed.` });
+  }
+  for (const dept of SANCTUM_DEPARTMENTS) {
+    const idx = dept.managers.findIndex(m => m.id === id);
+    if (idx === -1) continue;
+    const [removed] = dept.managers.splice(idx, 1);
+    removed.tier = 'STANDBY';
+    removed.slot = undefined;
+    standbyManagers.push(removed);
+    return res.json({ movedToStandby: true, manager: removed });
+  }
+  return res.status(404).json({ error: `Manager '${id}' not found` });
+});
+
+// ── POST /api/sanctum/managers/swap (Intra- or Cross-Department Drag-and-Drop) ─
+router.post('/managers/swap', (req: Request, res: Response) => {
+  const { sourceAgentId, targetAgentId, targetDepartmentCode } = req.body as {
+    sourceAgentId?: string;
+    targetAgentId?: string;
+    targetDepartmentCode?: string;
+  };
+  if (!sourceAgentId) return res.status(400).json({ error: 'sourceAgentId is required' });
+
+  let srcDept = SANCTUM_DEPARTMENTS.find(d => d.managers.some(m => m.id === sourceAgentId));
+  if (!srcDept) return res.status(404).json({ error: `Source manager '${sourceAgentId}' not found` });
+  const srcIdx = srcDept.managers.findIndex(m => m.id === sourceAgentId);
+  const srcMgr = srcDept.managers[srcIdx];
+
+  if (targetAgentId) {
+    const tgtDept = SANCTUM_DEPARTMENTS.find(d => d.managers.some(m => m.id === targetAgentId));
+    if (!tgtDept) return res.status(404).json({ error: `Target manager '${targetAgentId}' not found` });
+    const tgtIdx = tgtDept.managers.findIndex(m => m.id === targetAgentId);
+    const tgtMgr = tgtDept.managers[tgtIdx];
+
+    if (srcDept.deptCode === tgtDept.deptCode) {
+      const tmpSlot = srcMgr.slot;
+      srcMgr.slot = tgtMgr.slot;
+      tgtMgr.slot = tmpSlot;
+      srcDept.managers.sort((a, b) => (a.slot || 0) - (b.slot || 0));
+    } else {
+      const srcSlot = srcMgr.slot;
+      srcMgr.departmentCode = tgtDept.deptCode;
+      srcMgr.reportingTo = tgtDept.director.id;
+      srcMgr.slot = tgtMgr.slot;
+
+      tgtMgr.departmentCode = srcDept.deptCode;
+      tgtMgr.reportingTo = srcDept.director.id;
+      tgtMgr.slot = srcSlot;
+
+      srcDept.managers[srcIdx] = tgtMgr;
+      tgtDept.managers[tgtIdx] = srcMgr;
+    }
+    return res.json({ swapped: true, sourceAgentId, targetAgentId });
+  }
+
+  if (targetDepartmentCode) {
+    const tgtDept = SANCTUM_DEPARTMENTS.find(d => d.deptCode === targetDepartmentCode);
+    if (!tgtDept) return res.status(400).json({ error: `Locked department '${targetDepartmentCode}' not found` });
+    if (tgtDept.deptCode !== srcDept.deptCode) {
+      srcDept.managers.splice(srcIdx, 1);
+      srcMgr.departmentCode = tgtDept.deptCode;
+      srcMgr.reportingTo = tgtDept.director.id;
+      srcMgr.slot = tgtDept.managers.length + 1;
+      tgtDept.managers.push(srcMgr);
+    }
+    return res.json({ swapped: true, transferredTo: tgtDept.deptCode, manager: srcMgr });
+  }
+
+  return res.status(400).json({ error: 'Provide either targetAgentId or targetDepartmentCode' });
 });
 
 export default router;
