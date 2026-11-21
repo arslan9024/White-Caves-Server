@@ -69,7 +69,7 @@ class LindaMultiSimPoolService {
   constructor() {
     this.accounts = this.loadAccountsConfig();
     this.switcher = new MultiAccountSwitcherManager(
-      this.accounts.map(a => ({ id: a.id, name: a.displayName, phone: a.phoneNumber, status: 'DISCONNECTED' })) as any
+      this.accounts.map(a => ({ id: a.id, name: a.displayName, phone: a.phoneNumber, status: 'DISCONNECTED' }))
     );
     this.rotator = new MultiSimAccountRotator({ maxHourlySends: 20 });
   }
@@ -266,7 +266,7 @@ class LindaMultiSimPoolService {
     for (let i = 0; i < input.recipients.length; i++) {
       const target = input.recipients[i];
       const cleanTo = normalizePhoneDigits(target.phone);
-      const selectedSim = this.rotator.selectBestAccount(availablePhones as any);
+      const selectedSim = this.rotator.selectBestAccount(availablePhones);
       const delayMs = i === 0 ? 0 : computeAntiBanDelayMs();
       const baseTemplate = rotateTemplate('dh2-landlord-outreach', templates);
       const message = baseTemplate

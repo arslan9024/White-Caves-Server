@@ -1,37 +1,42 @@
-// @ts-nocheck
 /**
- * MultiSimAccountRotator.js
- * 
+ * MultiSimAccountRotator.ts
+ *
  * Single responsibility: Rotate outbound messaging across registered SIM numbers when hourly limits approach.
  * Category: 2️⃣ Domain / Feature (src/accounts/)
  * Law: Single Purpose File Law (< 350 lines).
  */
 
+export interface MultiSimAccountRotatorOptions {
+  maxHourlySends?: number;
+}
+
 export class MultiSimAccountRotator {
-  constructor({ maxHourlySends = 20 } = {}) {
+  private readonly maxHourlySends: number;
+  private readonly history: Map<string, number[]>;
+
+  constructor({ maxHourlySends = 20 }: MultiSimAccountRotatorOptions = {}) {
     this.maxHourlySends = maxHourlySends;
-    /** @type {Map<string, Array<number>>} */
     this.history = new Map();
   }
 
-  recordSend(phone, now = Date.now()) {
-    if (!this.history.has(phone)) this.history.set(phone, []);
-    const timestamps = this.history.get(phone);
+  recordSend(phone: string, now: number = Date.now()): void {
+    const timestamps = this.history.get(phone) ?? [];
     timestamps.push(now);
+    this.history.set(phone, timestamps);
   }
 
-  getHourlyCount(phone, now = Date.now()) {
-    const timestamps = this.history.get(phone) || [];
+  getHourlyCount(phone: string, now: number = Date.now()): number {
+    const timestamps = this.history.get(phone) ?? [];
     const oneHourAgo = now - 3600000;
     const active = timestamps.filter(t => t > oneHourAgo);
     this.history.set(phone, active);
     return active.length;
   }
 
-  selectBestAccount(availablePhones = [], now = Date.now()) {
+  selectBestAccount(availablePhones: string[] = [], now: number = Date.now()): string | null {
     if (!availablePhones.length) return null;
 
-    let bestPhone = null;
+    let bestPhone: string | null = null;
     let lowestCount = Infinity;
 
     for (const phone of availablePhones) {
