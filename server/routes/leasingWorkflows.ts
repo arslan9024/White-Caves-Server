@@ -29,6 +29,7 @@ import {
 import { lindaMultiSimPool } from '../services/whatsapp/LindaMultiSimPoolService.js';
 import { listSuppressedPhones } from '../services/whatsapp/dh2OutreachGovernanceService.js';
 import { listMdPrimaryMasterQueue } from '../services/whatsapp/aiConversationAnalyzerService.js';
+import { processDueQueueBatch } from '../services/leasing/leasingQueueWorkerService.js';
 
 const router = Router();
 const db = prisma as any;
@@ -168,6 +169,12 @@ router.get('/tenancy-deals/:dealId/receipt-pdf', asyncHandler(async (req, res) =
   res.setHeader('Content-Type', 'application/pdf');
   res.setHeader('Content-Disposition', `inline; filename="${bundle.receiptNumber}-${docType}.pdf"`);
   res.send(buf);
+}));
+
+router.post('/queue/process-due', asyncHandler(async (req: AuthRequest, res) => {
+  const limit = req.body?.limit ? Number(req.body.limit) : 20;
+  const result = await processDueQueueBatch(limit);
+  res.json({ success: true, data: result });
 }));
 
 // ─── WAVE 3: UNIFIED MD DAILY LEASING COCKPIT AGGREGATION ──────────────────
