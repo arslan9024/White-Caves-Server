@@ -12,6 +12,16 @@ import { prisma } from '../../database.js';
 import { createLogger } from '../../utils/logger.js';
 import { createHunterToPrimaryMasterHandoff } from './leasingSimOutreachFormula.js';
 import type { OrgJobRole } from '../rbac/leasingRoleClearanceMatrix.js';
+import {
+  cancelPendingLandlordCadence,
+  detectOptOutIntent,
+  suppressPhoneOptOut,
+} from './dh2OutreachGovernanceService.js';
+import {
+  enqueueMdPrimaryMasterFollowUp,
+  recordWhatsAppConversationTurn,
+  type WhatsAppMediaAttachment,
+} from './aiConversationAnalyzerService.js';
 
 const log = createLogger('Dh2LandlordReplyVaultSync');
 const defaultDb = prisma as any;
@@ -105,6 +115,7 @@ export async function processLandlordAvailabilityReply(input: {
   landlordPhone: string;
   landlordName?: string;
   message: string;
+  attachments?: WhatsAppMediaAttachment[];
   cluster?: string;
   unitNumber?: string;
   bedrooms?: number;
@@ -112,7 +123,47 @@ export async function processLandlordAvailabilityReply(input: {
   discoveredByRole?: OrgJobRole;
   dbOverride?: any;
 }) {
-  const parsed = parseLandlordAvailabilityReply(input.message, {
+  const db = input.dbOverride || defaultDb;
+  const thread = await recordWhatsAppConversationTurn({
+    contactPhone: input.landlordPhone,
+    simPhone: input.hunterSimPhone,
+    direction: 'INBOUND',
+    text: input.message,
+    attachments: input.attachments,
+    dbOverride: db,
+  });
+
+  const combinedText = [
+    input.message,
+    ...(input.attachments || []).map(a => a.transcript || a.caption || ''),
+  ].filter(Boolean).join(' ');
+
+  const optOut = detectOptOutIntent(combinedText);
+  if (optOut.isOptOut) {
+    const dnc = await suppressPhoneOptOut({
+      phone: input.landlordPhone,
+      reason: `landlord_reply:${optOut.matchedTerm || 'opt_out'}`,
+      dbOverride: db,
+    });
+    return {
+      syncedToMaryVault: false,
+      suppressedDnc: true,
+      dncRecord: dnc,
+      matched: true,
+      available: false,
+      reason: 'landlord_opted_out_dnc_persisted',
+      cluster: input.cluster || 'DAMAC Hills 2',
+      unitNumber: input.unitNumber || 'TBD',
+      bedrooms: input.bedrooms || 3,
+      askingRentAed: null,
+      extractedFacts: thread.extracted,
+      vaultPropertyId: null,
+      handoff: null,
+      mdQueueItem: null,
+    };
+  }
+
+  const parsed = parseLandlordAvailabilityReply(combinedText, {
     cluster: input.cluster,
     unitNumber: input.unitNumber,
     bedrooms: input.bedrooms,
@@ -121,18 +172,21 @@ export async function processLandlordAvailabilityReply(input: {
   if (!parsed.available) {
     return {
       syncedToMaryVault: false,
+      suppressedDnc: false,
       ...parsed,
+      extractedFacts: thread.extracted,
       vaultPropertyId: null,
       handoff: null,
+      mdQueueItem: null,
     };
   }
 
-  const db = input.dbOverride || defaultDb;
+  await cancelPendingLandlordCadence(input.landlordPhone, 'landlord_replied_available', db);
   const cleanLandlordPhone = String(input.landlordPhone).replace(/\D/g, '');
   const slugCluster = parsed.cluster.toLowerCase().replace(/[^a-z0-9]+/g, '-');
   const slugUnit = parsed.unitNumber.toLowerCase().replace(/[^a-z0-9]+/g, '-');
   const slug = `dh2-${slugCluster}-unit-${slugUnit}-${cleanLandlordPhone.slice(-4)}`;
-  const rentAed = parsed.askingRentAed || 95000;
+  const rentAed = thread.extracted.askingRentAed || parsed.askingRentAed || 95000;
 
   let vaultPropertyId: string | null = null;
   try {
@@ -205,11 +259,29 @@ export async function processLandlordAvailabilityReply(input: {
     notes: `Auto-synced to Mary Vault (${vaultPropertyId || 'pending-db'}). Reply: ${input.message.slice(0, 180)}`,
   });
 
+  const mdQueueItem = await enqueueMdPrimaryMasterFollowUp(
+    {
+      landlordPhone: `+${cleanLandlordPhone}`,
+      landlordName: input.landlordName || `DH2 Landlord (+${cleanLandlordPhone})`,
+      hunterSimPhone: input.hunterSimPhone,
+      cluster: parsed.cluster,
+      unitNumber: parsed.unitNumber,
+      bedrooms: parsed.bedrooms,
+      vaultPropertyId,
+      facts: thread.extracted,
+      lastMessage: combinedText,
+    },
+    db
+  );
+
   return {
     syncedToMaryVault: true,
+    suppressedDnc: false,
     ...parsed,
+    extractedFacts: thread.extracted,
     vaultPropertyId,
     handoff,
+    mdQueueItem,
   };
 }
 

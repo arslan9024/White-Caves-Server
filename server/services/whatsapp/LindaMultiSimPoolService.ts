@@ -4,7 +4,10 @@ import qrcode from 'qrcode';
 import { getWhatsAppEngine, WhatsAppEngine, WhatsAppEngineStatus } from './WhatsAppEngine.js';
 import { MultiAccountSwitcherManager } from './linda-core/imported/src/accounts/MultiAccountSwitcherManager.js';
 import { MultiSimAccountRotator } from './linda-core/imported/src/accounts/MultiSimAccountRotator.js';
-import { gaussianDelay, isDubaiBusinessHours, rotateTemplate } from './anti-ban/index.js';
+import { gaussianDelay, isDubaiBusinessHours, isFridayPrayerPause, rotateTemplate } from './anti-ban/index.js';
+import {
+  computeSimWarmupPolicy, isPhoneSuppressed, scheduleHunter3TouchCadence,
+} from './dh2OutreachGovernanceService.js';
 import {
   CANONICAL_10_SIM_FLEET, PRIMARY_MASTER_PHONE, type SimTier,
 } from './leasingSimOutreachFormula.js';
@@ -160,24 +163,16 @@ class LindaMultiSimPoolService {
     const totalHunterHourlyCapacity = hunters.reduce((sum, a) => sum + a.hourlyLimit, 0);
     const totalHunterHourlyUsed = hunters.reduce((sum, a) => sum + a.hourlySent, 0);
     return {
-      poolSize: accounts.length,
-      hunterPoolSize: hunters.length,
-      primaryMasterPhone: PRIMARY_MASTER_PHONE,
-      primaryMasterProtectedFromColdOutreach: true,
-      connectedCount: accounts.filter(a => a.isConnected).length,
-      connectedHunterCount: hunters.filter(a => a.isConnected).length,
-      activeAccount: this.switcher.getActiveAccount(),
+      poolSize: accounts.length, hunterPoolSize: hunters.length, primaryMasterPhone: PRIMARY_MASTER_PHONE,
+      primaryMasterProtectedFromColdOutreach: true, connectedCount: accounts.filter(a => a.isConnected).length,
+      connectedHunterCount: hunters.filter(a => a.isConnected).length, activeAccount: this.switcher.getActiveAccount(),
       antiBanPolicy: {
-        pacingRangeSeconds: [35, 65],
-        distribution: 'gaussian',
-        perSimHourlyCap: 18,
-        totalHourlyCapacity: totalHunterHourlyCapacity,
-        totalHourlyUsed: totalHunterHourlyUsed,
+        pacingRangeSeconds: [35, 65], distribution: 'gaussian', perSimHourlyCap: 18,
+        totalHourlyCapacity: totalHunterHourlyCapacity, totalHourlyUsed: totalHunterHourlyUsed,
         totalHourlyRemaining: Math.max(0, totalHunterHourlyCapacity - totalHunterHourlyUsed),
-        dubaiBusinessHoursActive: isDubaiBusinessHours(),
+        dubaiBusinessHoursActive: isDubaiBusinessHours(), fridayPrayerPauseActive: isFridayPrayerPause(),
       },
-      accounts,
-      timestamp: new Date().toISOString(),
+      accounts, timestamp: new Date().toISOString(),
     };
   }
 
@@ -195,12 +190,8 @@ class LindaMultiSimPoolService {
       void engine.initialize().catch(err => log.error(`Failed initializing ${account.phoneNumber}:`, err));
     }
     return {
-      account: account.phoneNumber,
-      displayName: account.displayName,
-      simTier: account.simTier,
-      status: engine.getStatus(),
-      isConnected: engine.isConnected(),
-      qrAvailable: Boolean(engine.getQRCode()),
+      account: account.phoneNumber, displayName: account.displayName, simTier: account.simTier,
+      status: engine.getStatus(), isConnected: engine.isConnected(), qrAvailable: Boolean(engine.getQRCode()),
     };
   }
 
@@ -259,26 +250,30 @@ class LindaMultiSimPoolService {
     templates?: string[];
     dryRun?: boolean;
     respectBusinessHours?: boolean;
+    scheduleCadence?: boolean;
+    simActivatedAtMap?: Record<string, Date | string>;
+    dbOverride?: any;
   }) {
     const templates = input.templates?.length ? input.templates : DH2_LANDLORD_TEMPLATES;
     const hunterAccounts = this.listPoolAccounts().filter(a => !isPrimaryMasterAccount(a));
     const connectedHunters = hunterAccounts.filter(a => a.isConnected);
-    const availableHunterPhones = (connectedHunters.length ? connectedHunters : hunterAccounts).map(a => a.phoneNumber);
-    const outsideHours = input.respectBusinessHours !== false && !isDubaiBusinessHours();
+    const activeHunters = connectedHunters.length ? connectedHunters : hunterAccounts;
+    const availableHunterPhones = activeHunters.filter(a => {
+      const warmup = computeSimWarmupPolicy(input.simActivatedAtMap?.[a.phoneNumber]);
+      return a.hourlySent < Math.min(a.hourlyLimit, warmup.hourlyCap);
+    }).map(a => a.phoneNumber);
+    const fridayPause = isFridayPrayerPause();
+    const outsideHours = input.respectBusinessHours !== false && (!isDubaiBusinessHours() || fridayPause);
 
     const plan: Array<{
-      to: string;
-      assignedSim: string;
-      delayMs: number;
-      message: string;
-      status: 'sent' | 'dry_run' | 'queued_outside_hours' | 'no_connected_sim' | 'rate_capped' | 'error';
+      to: string; assignedSim: string; delayMs: number; message: string;
+      status: 'sent' | 'dry_run' | 'queued_outside_hours' | 'no_connected_sim' | 'rate_capped' | 'dnc_suppressed' | 'error';
       error?: string;
     }> = [];
 
     for (let i = 0; i < input.recipients.length; i++) {
       const target = input.recipients[i];
       const cleanTo = normalizePhoneDigits(target.phone);
-      const selectedSim = this.rotator.selectBestAccount(availableHunterPhones);
       const delayMs = i === 0 ? 0 : computeAntiBanDelayMs();
       const message = rotateTemplate('dh2-landlord-outreach', templates)
         .replace(/\{\{ownerName\}\}/g, target.ownerName || 'Valued Owner')
@@ -286,8 +281,13 @@ class LindaMultiSimPoolService {
         .replace(/\{\{unitRef\}\}/g, target.unitRef || 'your villa/townhouse')
         .replace(/\{\{bedrooms\}\}/g, target.bedrooms || '3');
 
+      if (await isPhoneSuppressed(cleanTo, input.dbOverride)) {
+        plan.push({ to: cleanTo, assignedSim: 'none', delayMs: 0, message, status: 'dnc_suppressed', error: 'Global DNC opt-out active' });
+        continue;
+      }
+      const selectedSim = this.rotator.selectBestAccount(availableHunterPhones);
       if (!selectedSim) {
-        plan.push({ to: cleanTo, assignedSim: 'none', delayMs, message, status: 'rate_capped', error: 'All 9 Hunter SIMs at 18/hr anti-ban cap' });
+        plan.push({ to: cleanTo, assignedSim: 'none', delayMs, message, status: 'rate_capped', error: 'All 9 Hunter SIMs at warmup/hourly anti-ban cap' });
         continue;
       }
       if (input.dryRun) {
@@ -296,7 +296,7 @@ class LindaMultiSimPoolService {
         continue;
       }
       if (outsideHours) {
-        plan.push({ to: cleanTo, assignedSim: selectedSim, delayMs, message, status: 'queued_outside_hours' });
+        plan.push({ to: cleanTo, assignedSim: selectedSim, delayMs, message, status: 'queued_outside_hours', error: fridayPause ? 'Friday prayer pause (12:00–14:30 GST)' : undefined });
         continue;
       }
       const account = this.findAccount(selectedSim)!;
@@ -309,6 +309,12 @@ class LindaMultiSimPoolService {
       try {
         await engine.sendMessage(cleanTo, message);
         this.rotator.recordSend(selectedSim);
+        if (input.scheduleCadence !== false) {
+          await scheduleHunter3TouchCadence({
+            landlordPhone: cleanTo, ownerName: target.ownerName, cluster: target.cluster || 'DAMAC Hills 2',
+            unitRef: target.unitRef || 'TBD', bedrooms: target.bedrooms, hunterSimPhone: selectedSim, dbOverride: input.dbOverride,
+          });
+        }
         plan.push({ to: cleanTo, assignedSim: selectedSim, delayMs, message, status: 'sent' });
       } catch (err) {
         plan.push({ to: cleanTo, assignedSim: selectedSim, delayMs, message, status: 'error', error: err instanceof Error ? err.message : 'Send failed' });
@@ -316,13 +322,11 @@ class LindaMultiSimPoolService {
     }
 
     return {
-      total: plan.length,
-      sent: plan.filter(p => p.status === 'sent').length,
+      total: plan.length, sent: plan.filter(p => p.status === 'sent').length,
       dryRunCount: plan.filter(p => p.status === 'dry_run').length,
-      connectedHunterSims: connectedHunters.length,
-      primaryMasterProtected: PRIMARY_MASTER_PHONE,
-      outsideDubaiHours: outsideHours,
-      plan,
+      dncSuppressedCount: plan.filter(p => p.status === 'dnc_suppressed').length,
+      connectedHunterSims: connectedHunters.length, primaryMasterProtected: PRIMARY_MASTER_PHONE,
+      outsideDubaiHours: outsideHours, fridayPrayerPauseActive: fridayPause, plan,
     };
   }
 

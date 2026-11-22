@@ -40,6 +40,11 @@ import {
   launchDH2LandlordCampaign,
   ingestLandlordReply,
   routeInboundTenantViewing,
+  getDncSuppressionList,
+  addDncSuppression,
+  getMdFollowUpQueue,
+  patchMdFollowUpQueueItem,
+  getDueCadenceTouchesHandler,
   henryTrigger,
   inventoryBroadcast,
   nlpRoute,
@@ -108,5 +113,10 @@ router.get('/campaigns/akoya-landlords', requireRole('owner', 'admin'), previewA
 router.post('/campaigns/dh2-landlord-launch', requireRole('owner', 'admin'), launchDH2LandlordCampaign);
 router.post('/inbound/landlord-reply', requireRole('owner', 'admin'), ingestLandlordReply);
 router.post('/inbound/route-viewing', requirePermission('view_whatsapp_conversations'), routeInboundTenantViewing);
+router.get('/dnc', requireRole('owner', 'admin'), getDncSuppressionList);
+router.post('/dnc/suppress', requireRole('owner', 'admin'), addDncSuppression);
+router.get('/md-followup-queue', requireRole('owner', 'admin'), getMdFollowUpQueue);
+router.patch('/md-followup-queue/:id', requireRole('owner', 'admin'), patchMdFollowUpQueueItem);
+router.get('/cadence/due', requireRole('owner', 'admin'), getDueCadenceTouchesHandler);
 
 export default router;

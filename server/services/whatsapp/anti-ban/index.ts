@@ -4,7 +4,7 @@
 
 export { gaussianDelay, scheduleWithJitter } from './gaussianJitterScheduler.js';
 
-export { isDubaiBusinessHours, DubaiBusinessHoursGuard } from './dubaiBusinessHoursGuard.js';
+export { isDubaiBusinessHours, isFridayPrayerPause, DubaiBusinessHoursGuard } from './dubaiBusinessHoursGuard.js';
 
 export { getWeekendMultiplier, isDubaiWeekend, applyWeekendPacing } from './weekendPacingProfile.js';
 

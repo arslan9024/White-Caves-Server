@@ -29,6 +29,7 @@ import lindaProxyRoutes from './linda-proxy.js';
 import sanctumRoutes from './sanctum.js';
 import daisyRoutes from './daisy.js';
 import leasingFormulaRoutes from './leasingFormula.js';
+import leasingWorkflowsRoutes from './leasingWorkflows.js';
 import metaWebhookRoutes from './meta-webhook.js';
 import favoritesRoutes from './favorites.js';
 import orchestratorRoutes from './orchestrator.js';
@@ -313,6 +314,7 @@ export function mountDomainRoutes(app: Express): void {
 
   // Sovereign 10-SIM Hunter/Closer, RBAC Clearance, 12-Stage Tenancy Lifecycle & MD Calendar Formula
   app.use('/api/leasing-formula', authMiddleware, leasingFormulaRoutes);
+  app.use('/api/leasing-formula', authMiddleware, leasingWorkflowsRoutes);
 
   // Unified End-to-End Leasing Operations API (Leads, Viewings, Contract Closing, Linda Takeover & Slash Commands)
   app.use('/api/leasing', leasingOpsRoutes);

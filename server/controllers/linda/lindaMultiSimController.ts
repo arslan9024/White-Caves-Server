@@ -6,6 +6,15 @@ import {
 } from '../../services/whatsapp/LindaMultiSimPoolService.js';
 import { ingestAkoyaOxygenLandlords } from '../../services/whatsapp/dh2AkoyaSheetIngestor.js';
 import { processLandlordAvailabilityReply } from '../../services/whatsapp/dh2LandlordReplyVaultSync.js';
+import {
+  getDueHunterCadenceTouches,
+  listSuppressedPhones,
+  suppressPhoneOptOut,
+} from '../../services/whatsapp/dh2OutreachGovernanceService.js';
+import {
+  listMdPrimaryMasterQueue,
+  updateMdFollowUpQueueItem,
+} from '../../services/whatsapp/aiConversationAnalyzerService.js';
 
 export const getPoolTelemetry = async (_req: Request, res: Response) => {
   try {
@@ -225,5 +234,56 @@ export const routeInboundTenantViewing = async (req: Request, res: Response) => 
     res.json({ success: true, data: result });
   } catch (err) {
     res.status(500).json({ success: false, error: err instanceof Error ? err.message : 'Viewing routing failed' });
+  }
+};
+
+export const getDncSuppressionList = async (_req: Request, res: Response) => {
+  try {
+    const list = await listSuppressedPhones();
+    res.json({ success: true, data: { total: list.length, phones: list } });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err instanceof Error ? err.message : 'DNC fetch failed' });
+  }
+};
+
+export const addDncSuppression = async (req: Request, res: Response) => {
+  try {
+    const { phone, reason } = req.body || {};
+    if (!phone) return res.status(400).json({ success: false, error: 'phone is required' });
+    const record = await suppressPhoneOptOut({ phone: String(phone), reason: reason ? String(reason) : 'manual_dnc' });
+    res.status(201).json({ success: true, data: record });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err instanceof Error ? err.message : 'DNC suppress failed' });
+  }
+};
+
+export const getMdFollowUpQueue = async (req: Request, res: Response) => {
+  try {
+    const status = typeof req.query.status === 'string' ? req.query.status : 'pending';
+    const items = await listMdPrimaryMasterQueue(status);
+    res.json({ success: true, data: { total: items.length, primaryMasterPhone: '+971505760056', items } });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err instanceof Error ? err.message : 'MD queue fetch failed' });
+  }
+};
+
+export const patchMdFollowUpQueueItem = async (req: Request, res: Response) => {
+  try {
+    const id = String(req.params.id || '');
+    const { status, mdNotes } = req.body || {};
+    if (!id || !status) return res.status(400).json({ success: false, error: 'id and status are required' });
+    const updated = await updateMdFollowUpQueueItem(id, { status, mdNotes });
+    res.json({ success: true, data: updated });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err instanceof Error ? err.message : 'MD queue update failed' });
+  }
+};
+
+export const getDueCadenceTouchesHandler = async (_req: Request, res: Response) => {
+  try {
+    const touches = await getDueHunterCadenceTouches();
+    res.json({ success: true, data: { total: touches.length, touches } });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err instanceof Error ? err.message : 'Due cadence fetch failed' });
   }
 };

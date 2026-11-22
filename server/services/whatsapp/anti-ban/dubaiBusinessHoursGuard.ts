@@ -11,11 +11,13 @@ const BUSINESS_START_HOUR = 8;
 const BUSINESS_START_MINUTE = 30;
 const BUSINESS_END_HOUR = 21;
 const BUSINESS_END_MINUTE = 0;
+const FRIDAY_PRAYER_START_MINUTES = 12 * 60; // 12:00 GST
+const FRIDAY_PRAYER_END_MINUTES = 14 * 60 + 30; // 14:30 GST
 
 /**
  * Get the current time in Dubai (GST = UTC+4).
  */
-function getDubaiTime(now?: Date): { hours: number; minutes: number } {
+function getDubaiTime(now?: Date): { hours: number; minutes: number; dayOfWeek: number } {
   const d = now ?? new Date();
   const utcMs = d.getTime() + d.getTimezoneOffset() * 60_000;
   const dubaiMs = utcMs + GST_OFFSET_HOURS * 3_600_000;
@@ -24,15 +26,28 @@ function getDubaiTime(now?: Date): { hours: number; minutes: number } {
   return {
     hours: dubai.getHours(),
     minutes: dubai.getMinutes(),
+    dayOfWeek: dubai.getDay(), // 5 = Friday
   };
 }
 
 /**
- * Check if the current time falls within Dubai business hours (08:30–21:00 GST).
+ * Check if the current time falls within the Friday Jumu'ah prayer pause (12:00–14:30 GST).
+ */
+export function isFridayPrayerPause(now?: Date): boolean {
+  const { hours, minutes, dayOfWeek } = getDubaiTime(now);
+  if (dayOfWeek !== 5) return false;
+  const currentMinutes = hours * 60 + minutes;
+  return currentMinutes >= FRIDAY_PRAYER_START_MINUTES && currentMinutes < FRIDAY_PRAYER_END_MINUTES;
+}
+
+/**
+ * Check if the current time falls within Dubai business hours (08:30–21:00 GST),
+ * excluding the Friday prayer pause (12:00–14:30 GST).
  *
  * @param now  Optional date for testing; defaults to current time.
  */
 export function isDubaiBusinessHours(now?: Date): boolean {
+  if (isFridayPrayerPause(now)) return false;
   const { hours, minutes } = getDubaiTime(now);
   const currentMinutes = hours * 60 + minutes;
 
@@ -51,6 +66,11 @@ function msUntilNextWindow(now?: Date): number {
 
   const { hours, minutes } = getDubaiTime(now);
   const currentMinutes = hours * 60 + minutes;
+
+  if (isFridayPrayerPause(now)) {
+    return (FRIDAY_PRAYER_END_MINUTES - currentMinutes) * 60_000;
+  }
+
   const startMinutes = BUSINESS_START_HOUR * 60 + BUSINESS_START_MINUTE;
 
   let waitMinutes: number;
