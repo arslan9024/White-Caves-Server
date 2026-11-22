@@ -1,6 +1,7 @@
 /**
  * googleCalendarServiceAccount.ts
- * White Caves Real Estate LLC — Managing Director Google Calendar Scheduler via GorahaBot Service Account
+ * White Caves Real Estate LLC — Managing Director Google Calendar Scheduler
+ * Supports dedicated calendar service account keys (keys-amg-g-sa.json) with fallback to goraha-key.json
  */
 
 import fs from 'node:fs';
@@ -17,8 +18,10 @@ interface RawKey {
   private_key?: string;
 }
 
-function loadGorahaKey(): RawKey {
+function loadCalendarKey(): RawKey {
   const paths = [
+    path.join(CENTRAL_SECRETS_DIR, 'keys-amg-g-sa.json'),
+    path.join(CENTRAL_SECRETS_DIR, 'google', 'keys-amg-g-sa.json'),
     path.join(CENTRAL_SECRETS_DIR, 'google', 'goraha-key.json'),
     path.join(CENTRAL_SECRETS_DIR, 'goraha-key.json'),
   ];
@@ -28,23 +31,23 @@ function loadGorahaKey(): RawKey {
       if (parsed.type === 'service_account' && parsed.client_email && parsed.private_key) return parsed;
     }
   }
-  const b64 = process.env.GOOGLE_ACCOUNT_GORAHA_KEYS_BASE64;
+  const b64 = process.env.GOOGLE_ACCOUNT_CALENDAR_KEYS_BASE64 || process.env.GOOGLE_ACCOUNT_GORAHA_KEYS_BASE64;
   if (b64) {
     const parsed = JSON.parse(Buffer.from(b64.trim(), 'base64').toString('utf8')) as RawKey;
     if (parsed.type === 'service_account' && parsed.client_email && parsed.private_key) return parsed;
   }
-  throw new Error(`GorahaBot service account key not found in ${CENTRAL_SECRETS_DIR}`);
+  throw new Error(`Calendar service account key not found in ${CENTRAL_SECRETS_DIR}`);
 }
 
 export function createServiceAccountCalendarClient(): { calendar: calendar_v3.Calendar; email: string } {
-  const credentials = loadGorahaKey();
+  const credentials = loadCalendarKey();
   const auth = new google.auth.GoogleAuth({
     credentials,
     scopes: ['https://www.googleapis.com/auth/calendar'],
   });
   return {
     calendar: google.calendar({ version: 'v3', auth }),
-    email: credentials.client_email || 'gorahabot@white-caves-fb-486818.iam.gserviceaccount.com',
+    email: credentials.client_email || 'amg-g-clnd@white-caves-prod.iam.gserviceaccount.com',
   };
 }
 
