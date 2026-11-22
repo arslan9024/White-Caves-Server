@@ -183,6 +183,13 @@ const SCORING_TRIGGERS: Record<string, string[]> = {
  *
  * @param _prisma - PrismaClient instance (kept for backward-compatible signature)
  */
+const SYSTEM_ACTIVITY_ACTIONS = new Set([
+  'score_changed',
+  'score_override',
+  'sla_nudge_sent',
+  'sla_escalated',
+]);
+
 export function handleLeadScoringOperation(
   model: string | undefined,
   action: string,
@@ -213,7 +220,7 @@ export function handleLeadScoringOperation(
 
   if (model === 'Activity' && action === 'create') {
     const data = (args as Record<string, unknown>)?.data as Record<string, unknown> | undefined;
-    if (data?.action === 'score_changed' || data?.action === 'score_override') {
+    if (typeof data?.action === 'string' && SYSTEM_ACTIVITY_ACTIONS.has(data.action)) {
       return;
     }
   }

@@ -122,4 +122,63 @@ describe('leadWorkflowService', () => {
     expect(pushToUser).toHaveBeenCalledWith(expect.objectContaining({ userId: 'manager-1' }));
     expect(activityCreate).toHaveBeenCalled();
   });
+
+  it('skips leads within cooldown window and batches SLA activity inserts with createMany', async () => {
+    const pushToUser = vi.fn().mockResolvedValue(undefined);
+    const activityCreateMany = vi.fn().mockResolvedValue({ count: 1 });
+    const activityFindMany = vi.fn().mockResolvedValue([
+      { leadId: 'lead-already-escalated', action: 'sla_escalated' },
+      { leadId: 'lead-upgraded-to-manager', action: 'sla_nudge_sent' },
+    ]);
+
+    const result = await runLeadSlaEscalationTick({
+      now: new Date('2026-05-27T12:00:00.000Z'),
+      notifications: { pushToUser },
+      prismaClient: {
+        lead: {
+          findMany: vi.fn().mockResolvedValue([
+            {
+              id: 'lead-already-escalated',
+              name: 'Already Escalated',
+              status: 'new',
+              createdAt: new Date('2026-05-27T01:00:00.000Z'),
+              assignedToId: 'agent-1',
+              createdById: 'manager-1',
+            },
+            {
+              id: 'lead-upgraded-to-manager',
+              name: 'Needs Manager Escalation',
+              status: 'new',
+              createdAt: new Date('2026-05-27T02:00:00.000Z'),
+              assignedToId: 'agent-2',
+              createdById: 'manager-1',
+            },
+          ]),
+        },
+        user: {
+          findMany: vi.fn().mockResolvedValue([{ id: 'manager-1', name: 'Manager One', email: 'manager@wc.ae' }]),
+        },
+        activity: {
+          findMany: activityFindMany,
+          createMany: activityCreateMany,
+        },
+      } as never,
+    });
+
+    expect(result.scanned).toBe(2);
+    expect(result.skippedCooldown).toBe(1);
+    expect(result.managerEscalations).toBe(1);
+    expect(pushToUser).toHaveBeenCalledTimes(2);
+    expect(pushToUser).toHaveBeenCalledWith(expect.objectContaining({ userId: 'agent-2' }));
+    expect(pushToUser).toHaveBeenCalledWith(expect.objectContaining({ userId: 'manager-1' }));
+    expect(activityCreateMany).toHaveBeenCalledTimes(1);
+    expect(activityCreateMany).toHaveBeenCalledWith({
+      data: [
+        expect.objectContaining({
+          leadId: 'lead-upgraded-to-manager',
+          action: 'sla_escalated',
+        }),
+      ],
+    });
+  });
 });

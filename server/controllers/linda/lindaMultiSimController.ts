@@ -4,6 +4,8 @@ import {
   DH2_LANDLORD_TEMPLATES,
   lindaMultiSimPool,
 } from '../../services/whatsapp/LindaMultiSimPoolService.js';
+import { ingestAkoyaOxygenLandlords } from '../../services/whatsapp/dh2AkoyaSheetIngestor.js';
+import { processLandlordAvailabilityReply } from '../../services/whatsapp/dh2LandlordReplyVaultSync.js';
 
 export const getPoolTelemetry = async (_req: Request, res: Response) => {
   try {
@@ -110,24 +112,57 @@ export const dispatchPoolCampaignNow = async (req: Request, res: Response) => {
   }
 };
 
+export const previewAkoyaLandlords = async (req: Request, res: Response) => {
+  try {
+    const cluster = typeof req.query.cluster === 'string' ? req.query.cluster : undefined;
+    const limit = req.query.limit ? Number(req.query.limit) : 100;
+    const result = await ingestAkoyaOxygenLandlords({ cluster, limit });
+    res.json({ success: true, data: result });
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      error: err instanceof Error ? err.message : 'Akoya sheet ingestion failed',
+    });
+  }
+};
+
 export const launchDH2LandlordCampaign = async (req: Request, res: Response) => {
   try {
     const body = req.body || {};
-    const cluster = typeof body.cluster === 'string' ? body.cluster : 'Camelia';
-    const recipients = Array.isArray(body.recipients) ? body.recipients : [];
+    const cluster = typeof body.cluster === 'string' ? body.cluster : '';
+    let recipients = Array.isArray(body.recipients) ? body.recipients : [];
+    let ingestionSummary: Record<string, unknown> | null = null;
+
+    if (!recipients.length || body.source === 'akoya_sheet') {
+      const ingested = await ingestAkoyaOxygenLandlords({
+        cluster: cluster || undefined,
+        limit: Number(body.limit || 100),
+      });
+      recipients = ingested.recipients;
+      ingestionSummary = {
+        spreadsheetId: ingested.spreadsheetId,
+        spreadsheetTitle: ingested.spreadsheetTitle,
+        validLandlords: ingested.validLandlords,
+        skippedInvalid: ingested.skippedInvalid,
+        skippedDuplicates: ingested.skippedDuplicates,
+        clustersSummary: ingested.clustersSummary,
+      };
+    }
+
     if (!recipients.length) {
       return res.status(400).json({
         success: false,
-        error: 'Provide recipients: [{ phone, ownerName?, cluster?, unitRef?, bedrooms? }]',
+        error: 'No eligible DH2 landlord recipients found (check cluster filter or Akoya sheet)',
         supportedClusters: DH2_CLUSTERS,
         defaultTemplates: DH2_LANDLORD_TEMPLATES,
       });
     }
+
     const normalized = recipients.map((r: any) => ({
       phone: String(r.phone || r),
       ownerName: r.ownerName || 'Valued Owner',
-      cluster: r.cluster || cluster,
-      unitRef: r.unitRef || `${cluster} Villa`,
+      cluster: r.cluster || cluster || 'DAMAC Hills 2',
+      unitRef: r.unitRef || `${r.cluster || cluster || 'DH2'} Villa`,
       bedrooms: String(r.bedrooms || '3'),
     }));
     const result = await lindaMultiSimPool.dispatchRotatedOutreach({
@@ -139,13 +174,38 @@ export const launchDH2LandlordCampaign = async (req: Request, res: Response) => 
     res.json({
       success: true,
       data: {
-        campaign: `DH2 Landlord Outreach — ${cluster}`,
-        antiBanPacing: '35–65s Gaussian Jitter across 5 SIMs (20/hr cap per SIM)',
+        campaign: `Mission 1 DH2 Landlord Outreach — ${cluster || 'All Clusters'}`,
+        antiBanPacing: '35–65s Gaussian Jitter across 9 Hunter SIMs (18/hr cap per SIM; +971505760056 hard-protected)',
+        ingestionSummary,
         ...result,
       },
     });
   } catch (err) {
     res.status(500).json({ success: false, error: err instanceof Error ? err.message : 'DH2 launch failed' });
+  }
+};
+
+export const ingestLandlordReply = async (req: Request, res: Response) => {
+  try {
+    const { hunterSimPhone, landlordPhone, landlordName, message, cluster, unitNumber, bedrooms } = req.body || {};
+    if (!hunterSimPhone || !landlordPhone || !message) {
+      return res.status(400).json({
+        success: false,
+        error: 'hunterSimPhone, landlordPhone, and message are required',
+      });
+    }
+    const result = await processLandlordAvailabilityReply({
+      hunterSimPhone: String(hunterSimPhone),
+      landlordPhone: String(landlordPhone),
+      landlordName: landlordName ? String(landlordName) : undefined,
+      message: String(message),
+      cluster: cluster ? String(cluster) : undefined,
+      unitNumber: unitNumber ? String(unitNumber) : undefined,
+      bedrooms: bedrooms ? Number(bedrooms) : undefined,
+    });
+    res.json({ success: true, data: result });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err instanceof Error ? err.message : 'Landlord reply sync failed' });
   }
 };
 

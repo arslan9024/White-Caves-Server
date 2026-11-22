@@ -41,6 +41,7 @@ vi.mock('../../../utils/logger.js', () => ({
 
 import {
   registerLeadScoringMiddleware,
+  handleLeadScoringOperation,
   onTierChange,
   getMiddlewareStats,
   clearDebounceCache,
@@ -146,6 +147,34 @@ describe('leadScoringMiddleware', () => {
     it('should trigger scoring for Commission create', () => {
       registerLeadScoringMiddleware(prisma as unknown as import('@prisma/client').PrismaClient);
       expect(prisma.$use).toHaveBeenCalled();
+    });
+
+    it('ignores system SLA activities so cron ticks do not trigger scoring storms', () => {
+      handleLeadScoringOperation(
+        'Activity',
+        'create',
+        { data: { leadId: 'lead-sla-1', action: 'sla_escalated' } },
+        { id: 'act-1', leadId: 'lead-sla-1' }
+      );
+      handleLeadScoringOperation(
+        'Activity',
+        'create',
+        { data: { leadId: 'lead-sla-2', action: 'sla_nudge_sent' } },
+        { id: 'act-2', leadId: 'lead-sla-2' }
+      );
+
+      expect(getMiddlewareStats().trackedLeads).toBe(0);
+    });
+
+    it('still triggers scoring for real engagement activities', () => {
+      handleLeadScoringOperation(
+        'Activity',
+        'create',
+        { data: { leadId: 'lead-real-1', action: 'call_logged' } },
+        { id: 'act-3', leadId: 'lead-real-1' }
+      );
+
+      expect(getMiddlewareStats().trackedLeads).toBe(1);
     });
   });
 

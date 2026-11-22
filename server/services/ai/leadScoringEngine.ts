@@ -80,8 +80,13 @@ async function scoreEngagement(leadId: string): Promise<{ score: number; factors
   const factors: ScoreFactor[] = [];
   let score = 0;
 
-  // 1. Activity count (max 12 points)
-  const activityCount = await prisma.activity.count({ where: { leadId } });
+  // 1. Activity count (max 12 points) — exclude system-generated scoring & SLA alert activities
+  const activityCount = await prisma.activity.count({
+    where: {
+      leadId,
+      action: { notIn: ['score_changed', 'score_override', 'sla_nudge_sent', 'sla_escalated'] },
+    },
+  });
   let activityPoints = 0;
   if (activityCount >= 20) activityPoints = 12;
   else if (activityCount >= 10) activityPoints = 9;

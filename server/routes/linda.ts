@@ -36,7 +36,9 @@ import {
   getPoolAccountQr,
   requestPoolAccountPairCode,
   dispatchPoolCampaignNow,
+  previewAkoyaLandlords,
   launchDH2LandlordCampaign,
+  ingestLandlordReply,
   routeInboundTenantViewing,
   henryTrigger,
   inventoryBroadcast,
@@ -92,7 +94,7 @@ router.get('/master-posture', requirePermission('view_whatsapp_conversations'), 
 router.post('/sessions/:id/ping', requirePermission('view_whatsapp_conversations'), pingLindaSession);
 router.patch('/campaigns/:id/status', requirePermission('view_whatsapp_conversations'), toggleLindaCampaignStatus);
 
-// Live 5-SIM Pool Telemetry, Pairing, Anti-Ban Rotation & DH2 Launch (in-process White-Caves-Server)
+// Live 10-SIM Pool Telemetry, Pairing, Hunter-Only Anti-Ban Rotation, Akoya Ingestion & Mary Vault Sync
 router.get('/pool/telemetry', requirePermission('view_whatsapp_conversations'), getPoolTelemetry);
 router.get('/pool/accounts', requirePermission('view_whatsapp_conversations'), listPoolAccounts);
 router.post('/pool/switch', requirePermission('view_whatsapp_conversations'), switchPoolAccount);
@@ -102,7 +104,9 @@ router.post('/pool/:phone/disconnect', requireRole('owner', 'admin'), disconnect
 router.get('/pool/:phone/qr', requirePermission('view_whatsapp_conversations'), getPoolAccountQr);
 router.post('/pool/:phone/pair-code', requireRole('owner', 'admin'), requestPoolAccountPairCode);
 router.post('/campaign/dispatch-now', requirePermission('reply_whatsapp_conversations'), dispatchPoolCampaignNow);
+router.get('/campaigns/akoya-landlords', requireRole('owner', 'admin'), previewAkoyaLandlords);
 router.post('/campaigns/dh2-landlord-launch', requireRole('owner', 'admin'), launchDH2LandlordCampaign);
+router.post('/inbound/landlord-reply', requireRole('owner', 'admin'), ingestLandlordReply);
 router.post('/inbound/route-viewing', requirePermission('view_whatsapp_conversations'), routeInboundTenantViewing);
 
 export default router;

@@ -3,6 +3,7 @@ import { notificationService } from './NotificationService.js';
 
 export const LEAD_SLA_HOURS = 4;
 export const LEAD_MANAGER_ESCALATION_HOURS = 8;
+export const LEAD_SLA_COOLDOWN_HOURS = 24;
 
 type LeadTaskLead = {
   id: string;
@@ -296,73 +297,136 @@ export async function runLeadSlaEscalationTick({
     take: 200,
   });
 
-  const managers = await prismaClient.user.findMany({
-    where: { role: { in: ['owner', 'manager', 'admin'] } },
-    select: { id: true, name: true, email: true },
-    take: 25,
-  });
+  if (escalatedLeads.length === 0) {
+    return {
+      scanned: 0,
+      agentNudges: 0,
+      managerEscalations: 0,
+      skippedCooldown: 0,
+      thresholdHours: LEAD_SLA_HOURS,
+    };
+  }
+
+  const cooldownThreshold = new Date(now.getTime() - LEAD_SLA_COOLDOWN_HOURS * 36e5);
+  const [managers, recentSlaActivities] = await Promise.all([
+    prismaClient.user.findMany({
+      where: { role: { in: ['owner', 'manager', 'admin'] } },
+      select: { id: true, name: true, email: true },
+      take: 25,
+    }),
+    typeof prismaClient.activity?.findMany === 'function'
+      ? prismaClient.activity.findMany({
+          where: {
+            leadId: { in: escalatedLeads.map(lead => lead.id) },
+            action: { in: ['sla_nudge_sent', 'sla_escalated'] },
+            createdAt: { gte: cooldownThreshold },
+          },
+          select: { leadId: true, action: true },
+        })
+      : Promise.resolve([] as Array<{ leadId: string | null; action: string }>),
+  ]);
+
+  const recentActionsByLeadId = new Map<string, Set<string>>();
+  for (const activity of recentSlaActivities) {
+    if (!activity.leadId) continue;
+    const actions = recentActionsByLeadId.get(activity.leadId) ?? new Set<string>();
+    actions.add(activity.action);
+    recentActionsByLeadId.set(activity.leadId, actions);
+  }
 
   let agentNudges = 0;
   let managerEscalations = 0;
+  let skippedCooldown = 0;
+  const pendingActivities: Array<{
+    type: string;
+    action: string;
+    description: string;
+    leadId: string;
+    userId: string | null;
+    metadata: {
+      hoursOpen: number;
+      notifiedUserIds: string[];
+      escalationLevel: 'manager' | 'assignee';
+    };
+  }> = [];
 
   for (const lead of escalatedLeads) {
     const hoursOpen = getLeadHoursOpen(lead, now);
+    const isManagerEscalation = hoursOpen >= LEAD_MANAGER_ESCALATION_HOURS;
+    const action = isManagerEscalation ? 'sla_escalated' : 'sla_nudge_sent';
+    const recentActions = recentActionsByLeadId.get(lead.id);
+
+    if (
+      recentActions?.has(action) ||
+      (!isManagerEscalation && recentActions?.has('sla_escalated'))
+    ) {
+      skippedCooldown += 1;
+      continue;
+    }
+
     const recipientIds = new Set<string>();
 
     if (lead.assignedToId) {
       recipientIds.add(lead.assignedToId);
     }
 
-    if (hoursOpen >= LEAD_MANAGER_ESCALATION_HOURS) {
+    if (isManagerEscalation) {
       managers.forEach(manager => recipientIds.add(manager.id));
     }
 
-    for (const userId of recipientIds) {
-      await notifications.pushToUser({
-        userId,
-        type: 'lead',
-        title:
-          hoursOpen >= LEAD_MANAGER_ESCALATION_HOURS
+    await Promise.all(
+      Array.from(recipientIds).map(userId =>
+        notifications.pushToUser({
+          userId,
+          type: 'lead',
+          title: isManagerEscalation
             ? 'Lead SLA escalated to manager'
             : 'Lead SLA breach detected',
-        message: `${lead.name} has been waiting ${hoursOpen}h without first response.`,
-        metadata: {
-          leadId: lead.id,
-          hoursOpen,
-          slaHours: LEAD_SLA_HOURS,
-          escalationLevel:
-            hoursOpen >= LEAD_MANAGER_ESCALATION_HOURS ? 'manager' : 'assignee',
-        },
-      });
-    }
+          message: `${lead.name} has been waiting ${hoursOpen}h without first response.`,
+          metadata: {
+            leadId: lead.id,
+            hoursOpen,
+            slaHours: LEAD_SLA_HOURS,
+            escalationLevel: isManagerEscalation ? 'manager' : 'assignee',
+          },
+        })
+      )
+    );
 
     agentNudges += lead.assignedToId ? 1 : 0;
-    managerEscalations += hoursOpen >= LEAD_MANAGER_ESCALATION_HOURS ? 1 : 0;
+    managerEscalations += isManagerEscalation ? 1 : 0;
 
-    await prismaClient.activity.create({
-      data: {
-        type: 'lead',
-        action: hoursOpen >= LEAD_MANAGER_ESCALATION_HOURS ? 'sla_escalated' : 'sla_nudge_sent',
-        description:
-          hoursOpen >= LEAD_MANAGER_ESCALATION_HOURS
-            ? `Lead "${lead.name}" escalated to managers after ${hoursOpen}h without response`
-            : `Lead "${lead.name}" nudged after ${hoursOpen}h without response`,
-        leadId: lead.id,
-        userId: lead.createdById ?? null,
-        metadata: {
-          hoursOpen,
-          notifiedUserIds: Array.from(recipientIds),
-          escalationLevel:
-            hoursOpen >= LEAD_MANAGER_ESCALATION_HOURS ? 'manager' : 'assignee',
-        },
+    pendingActivities.push({
+      type: 'lead',
+      action,
+      description: isManagerEscalation
+        ? `Lead "${lead.name}" escalated to managers after ${hoursOpen}h without response`
+        : `Lead "${lead.name}" nudged after ${hoursOpen}h without response`,
+      leadId: lead.id,
+      userId: lead.createdById ?? null,
+      metadata: {
+        hoursOpen,
+        notifiedUserIds: Array.from(recipientIds),
+        escalationLevel: isManagerEscalation ? 'manager' : 'assignee',
       },
     });
+  }
+
+  if (pendingActivities.length > 0) {
+    if (typeof prismaClient.activity?.createMany === 'function') {
+      await prismaClient.activity.createMany({ data: pendingActivities });
+    } else {
+      await Promise.all(
+        pendingActivities.map(data => prismaClient.activity.create({ data }))
+      );
+    }
   }
 
   return {
     scanned: escalatedLeads.length,
     agentNudges,
     managerEscalations,
+    skippedCooldown,
     thresholdHours: LEAD_SLA_HOURS,
   };
 }
