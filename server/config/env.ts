@@ -21,6 +21,7 @@ export const CENTRAL_SECRETS_DIR = path.resolve(
 const SINGLE_PURPOSE_VAULT_FILES = [
   'server-runtime.env',
   'database.env',
+  'mongodb.env',
   'auth-security.env',
   'stripe.env',
   'firebase.env',
