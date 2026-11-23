@@ -1,5 +1,5 @@
 import { EventEmitter } from 'events';
-import { getSocketServer } from '../socketServer.js';
+import { getSocketServer } from '../../socketServer.js';
 import {
   LINDA_SESSIONS_PATH,
   LINDA_HEADLESS,
