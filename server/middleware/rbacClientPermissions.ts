@@ -1,0 +1,82 @@
+/**
+ * RBAC Client Role Permissions
+ * ──────────────────────────────
+ * Permissions matrix for client portal, viewer, and external roles.
+ * Single-purpose module conforming to AEGIS V5.1 rule AEG-042 (<= 300 lines).
+ */
+
+export const CLIENT_ROLE_PERMISSIONS: Record<string, string[]> = {
+  buyer: [
+    'view_dashboard',
+    'edit_profile',
+    'view_properties',
+    'view_contracts',
+    'sign_contracts',
+    'view_payments',
+    'track_offers',
+    'schedule_viewings',
+    'upload_documents',
+  ],
+  seller: [
+    'view_dashboard',
+    'edit_profile',
+    'view_properties',
+    'create_property',
+    'edit_property',
+    'view_leads',
+    'view_contracts',
+    'view_analytics',
+    'track_offers',
+    'schedule_viewings',
+    'upload_documents',
+  ],
+  landlord: [
+    'view_dashboard',
+    'edit_profile',
+    'view_properties',
+    'create_property',
+    'edit_property',
+    'view_leads',
+    'view_contracts',
+    'create_contracts',
+    'view_payments',
+    'view_analytics',
+    'manage_maintenance',
+    'view_own_lease',
+  ],
+  tenant: [
+    'view_dashboard',
+    'edit_profile',
+    'view_properties',
+    'view_contracts',
+    'sign_contracts',
+    'view_payments',
+    'submit_maintenance',
+    'pay_rent_online',
+    'view_own_lease',
+  ],
+  viewer: [
+    'view_dashboard',
+    'edit_profile',
+    'view_properties',
+    'view_leads',
+    'view_contracts',
+    'view_payments',
+    'view_analytics',
+  ],
+  property_owner: [
+    'view_dashboard',
+    'edit_profile',
+    'view_properties',
+    'create_property',
+    'edit_property',
+    'view_own_lease',
+    'manage_maintenance',
+    'view_payments',
+    'view_contracts',
+    'sign_contracts',
+    'upload_documents',
+    'view_analytics',
+  ],
+  user: ['view_dashboard', 'edit_profile', 'view_properties'],
+};
