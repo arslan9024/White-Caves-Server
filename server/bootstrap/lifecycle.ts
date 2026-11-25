@@ -12,6 +12,8 @@ import { startRERAExpiryScheduler } from '../services/compliance/reraExpirySched
 import { startAutoRouting } from '../services/ai/leadAutoRouter.js';
 import { schedulerService } from '../services/SchedulerService.js';
 import { startLindaCampaignScheduler } from '../services/whatsapp/lindaCampaignService.js';
+import { startLeasingQueueScheduler } from '../services/leasing/leasingQueueWorkerService.js';
+import { startLindaPairedSessionAutoReconnect } from '../services/whatsapp/lindaOutreachJobRunner.js';
 import { RealtimeService } from '../websocket/realtimeService.js';
 import type { ServerRuntime } from './runtime.js';
 import { PREFERRED_PORT, parsePort, listenWithPortFallback } from './listener.js';
@@ -79,6 +81,8 @@ const startServer = async (app: Express, runtime: ServerRuntime) => {
   startAutoRouting(); // Phase 4A: auto-route hot leads to best agents
   schedulerService.start(); // Wave 12: cron automation engine
   startLindaCampaignScheduler(); // Linda WhatsApp Campaign & Outreach engine
+  startLeasingQueueScheduler(); // FollowUpQueue: viewing reminders, 90-day RERA notices & 3-touch cadence
+  startLindaPairedSessionAutoReconnect(); // Restore paired Primary Master (+971505760056) LocalAuth session
 
   import('../services/orchestrator/AssistantOrchestrator.js')
     .then(({ assistantOrchestrator }) => {

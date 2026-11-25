@@ -16,6 +16,7 @@ import {
 } from '../../services/whatsapp/dh2CampaignSequencesService.js';
 import { removePhoneOptOut } from '../../services/whatsapp/dh2OutreachGovernanceService.js';
 import { lindaMultiSimPool } from '../../services/whatsapp/LindaMultiSimPoolService.js';
+import { startBackgroundOutreachJob } from '../../services/whatsapp/lindaOutreachJobRunner.js';
 
 export const getWarmDh2Contacts = async (req: Request, res: Response) => {
   try {
@@ -58,17 +59,28 @@ export const launchWarmDh2Sequence = async (req: Request, res: Response) => {
         ? rawKey
         : 'LANDLORD_RETENTION_RENEWAL';
 
-    const result = await launchWarmSequenceCampaign({
+    const isDryRun = body.dryRun !== false;
+    const launchParams = {
       sequenceKey,
       cluster: typeof body.cluster === 'string' && body.cluster !== 'All 38 Clusters' ? body.cluster : undefined,
       limit: body.limit ? Number(body.limit) : 25,
-      dryRun: body.dryRun !== false,
+      dryRun: isDryRun,
       respectBusinessHours: body.respectBusinessHours !== false,
       scheduleFollowUps: body.scheduleFollowUps !== false,
       customTemplate: typeof body.customTemplate === 'string' ? body.customTemplate : undefined,
       recipientsOverride: Array.isArray(body.recipients) ? body.recipients : undefined,
-    });
+    };
 
+    if (!isDryRun && body.sync !== true) {
+      const job = startBackgroundOutreachJob({
+        label: `Warm Sequence ${sequenceKey} (${launchParams.cluster || 'All DH2'})`,
+        totalRecipients: launchParams.recipientsOverride?.length || launchParams.limit,
+        runner: () => launchWarmSequenceCampaign(launchParams),
+      });
+      return res.status(202).json({ success: true, asyncJob: true, data: job });
+    }
+
+    const result = await launchWarmSequenceCampaign(launchParams);
     res.json({ success: true, data: result });
   } catch (err) {
     res.status(500).json({

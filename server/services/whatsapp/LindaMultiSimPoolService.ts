@@ -8,22 +8,19 @@ import { gaussianDelay, isDubaiBusinessHours, isFridayPrayerPause, rotateTemplat
 import {
   computeSimWarmupPolicy, isPhoneSuppressed, scheduleHunter3TouchCadence,
 } from './dh2OutreachGovernanceService.js';
-import {
-  CANONICAL_10_SIM_FLEET, PRIMARY_MASTER_PHONE, type SimTier,
-} from './leasingSimOutreachFormula.js';
+import { PRIMARY_MASTER_PHONE } from './leasingSimOutreachFormula.js';
 import {
   DH2_CLUSTERS, DH2_LANDLORD_TEMPLATES, processLandlordAvailabilityReply, routeInboundTenantViewingInquiry,
 } from './dh2LandlordReplyVaultSync.js';
-export { DH2_CLUSTERS, DH2_LANDLORD_TEMPLATES };
+import {
+  isPrimaryMasterAccount, loadPoolAccountsConfig, normalizePhoneDigits, type PoolAccountConfig,
+} from './lindaPoolAccountsConfig.js';
+export { DH2_CLUSTERS, DH2_LANDLORD_TEMPLATES, normalizePhoneDigits, type PoolAccountConfig };
 import { LINDA_SESSIONS_PATH, LINDA_HEADLESS } from '../../config/env.js';
+import { getSocketServer } from '../socketServer.js';
 import { createLogger } from '../../utils/logger.js';
 
 const log = createLogger('LindaMultiSimPool');
-
-export interface PoolAccountConfig {
-  id: string; phoneNumber: string; sessionId: string; displayName: string;
-  role: 'master' | 'employee' | 'servant'; simTier: SimTier; hourlyLimit: number;
-}
 
 export interface PoolAccountLiveStatus extends PoolAccountConfig {
   digits: string; engineStatus: WhatsAppEngineStatus; isConnected: boolean; isActive: boolean;
@@ -31,17 +28,7 @@ export interface PoolAccountLiveStatus extends PoolAccountConfig {
   messagesSent: number; messagesReceived: number;
 }
 
-const DEFAULT_10_SIM_ACCOUNTS: PoolAccountConfig[] = CANONICAL_10_SIM_FLEET.map(s => ({
-  id: s.id, phoneNumber: s.phoneNumber, sessionId: s.sessionId, displayName: s.displayName,
-  role: s.tier === 'PRIMARY_MASTER_CLOSER' ? 'master' : 'servant', simTier: s.tier, hourlyLimit: s.hourlyCap,
-}));
-
-export const normalizePhoneDigits = (phone: string): string => String(phone || '').replace(/\D/g, '');
 export const computeAntiBanDelayMs = (): number => Math.min(65_000, Math.max(35_000, gaussianDelay(50_000, 7_500)));
-
-const isPrimaryMasterAccount = (account: Pick<PoolAccountConfig, 'phoneNumber' | 'simTier'>): boolean =>
-  account.simTier === 'PRIMARY_MASTER_CLOSER' ||
-  normalizePhoneDigits(account.phoneNumber) === normalizePhoneDigits(PRIMARY_MASTER_PHONE);
 
 class LindaMultiSimPoolService {
   private readonly accounts: PoolAccountConfig[];
@@ -50,40 +37,11 @@ class LindaMultiSimPoolService {
   private readonly attachedInbound = new Set<string>();
 
   constructor() {
-    this.accounts = this.loadAccountsConfig();
+    this.accounts = loadPoolAccountsConfig();
     this.switcher = new MultiAccountSwitcherManager(
       this.accounts.map(a => ({ id: a.id, name: a.displayName, phone: a.phoneNumber, status: 'DISCONNECTED' }))
     );
     this.rotator = new MultiSimAccountRotator({ maxHourlySends: 18 });
-  }
-
-  private loadAccountsConfig(): PoolAccountConfig[] {
-    try {
-      const configPath = path.resolve(process.cwd(), 'data/app/whatsapp-accounts.json');
-      if (fs.existsSync(configPath)) {
-        const parsed = JSON.parse(fs.readFileSync(configPath, 'utf8'));
-        if (Array.isArray(parsed?.accounts) && parsed.accounts.length > 0) {
-          return parsed.accounts.map((a: any, idx: number) => {
-            const phoneNumber = String(a.phoneNumber);
-            const isMaster =
-              a.simTier === 'PRIMARY_MASTER_CLOSER' ||
-              normalizePhoneDigits(phoneNumber) === normalizePhoneDigits(PRIMARY_MASTER_PHONE);
-            return {
-              id: String(a.id || `sim-${String(idx + 1).padStart(2, '0')}`),
-              phoneNumber,
-              sessionId: String(a.sessionId || `session-${normalizePhoneDigits(phoneNumber)}`),
-              displayName: String(a.displayName || phoneNumber),
-              role: (isMaster ? 'master' : a.role === 'employee' ? 'employee' : 'servant') as PoolAccountConfig['role'],
-              simTier: (isMaster ? 'PRIMARY_MASTER_CLOSER' : 'HUNTER_OUTREACH') as SimTier,
-              hourlyLimit: Number(a.hourlyLimit || (isMaster ? 25 : 18)),
-            };
-          });
-        }
-      }
-    } catch (err) {
-      log.warn('Failed reading whatsapp-accounts.json, using canonical 10-SIM defaults', err);
-    }
-    return DEFAULT_10_SIM_ACCOUNTS;
   }
 
   public findAccount(idOrPhone: string): PoolAccountConfig | undefined {
@@ -95,6 +53,28 @@ class LindaMultiSimPoolService {
 
   public getHunterPoolAccounts(): PoolAccountConfig[] {
     return this.accounts.filter(a => !isPrimaryMasterAccount(a));
+  }
+
+  public getPrimaryAccount(): PoolAccountConfig {
+    return this.accounts.find(a => isPrimaryMasterAccount(a)) || this.accounts[0];
+  }
+
+  public getBestConnectedEngine(preferredAccount?: string): { account: PoolAccountConfig; engine: WhatsAppEngine } | null {
+    if (preferredAccount) {
+      const matched = this.findAccount(preferredAccount);
+      if (matched) {
+        const eng = this.getEngineForAccount(matched);
+        if (eng.isConnected()) return { account: matched, engine: eng };
+      }
+    }
+    const primary = this.getPrimaryAccount();
+    const primaryEng = this.getEngineForAccount(primary);
+    if (primaryEng.isConnected()) return { account: primary, engine: primaryEng };
+    for (const acc of this.accounts) {
+      const eng = this.getEngineForAccount(acc);
+      if (eng.isConnected()) return { account: acc, engine: eng };
+    }
+    return null;
   }
 
   public getEngineForAccount(account: PoolAccountConfig): WhatsAppEngine {
@@ -120,16 +100,27 @@ class LindaMultiSimPoolService {
   private async handleInboundWhatsAppMessage(account: PoolAccountConfig, fromPhone: string, body: string) {
     if (!isPrimaryMasterAccount(account)) {
       const landlordSync = await processLandlordAvailabilityReply({
-        hunterSimPhone: account.phoneNumber,
-        landlordPhone: fromPhone,
-        message: body,
+        hunterSimPhone: account.phoneNumber, landlordPhone: fromPhone, message: body,
       });
       if (landlordSync.syncedToMaryVault) {
         log.info(`Mary Vault auto-populated from Hunter SIM ${account.phoneNumber} -> ${landlordSync.handoff?.handoffId}`);
+        getSocketServer()?.emitLindaHotLead({
+          type: 'LANDLORD_AVAILABLE_SYNCED', phone: fromPhone, cluster: landlordSync.cluster,
+          unitNumber: landlordSync.unitNumber, askingRentAed: landlordSync.askingRentAed,
+          routedTo: 'AI Mary (SUP-06-1-01-1) -> MD Closer (+971505760056)',
+        });
         return landlordSync;
       }
     }
-    return this.routeInboundTenantToViewing({ fromPhone, message: body, receivedOnLine: account.phoneNumber });
+    const tenant = await this.routeInboundTenantToViewing({ fromPhone, message: body, receivedOnLine: account.phoneNumber });
+    if (tenant?.routed) {
+      getSocketServer()?.emitLindaHotLead({
+        type: 'TENANT_VIEWING_MATCHED', phone: fromPhone, cluster: tenant.cluster,
+        bedrooms: tenant.bedrooms, matchedUnitsCount: tenant.matchedUnits?.length ?? 0,
+        routedTo: 'AI Daisy (SUP-05-2-01-1)',
+      });
+    }
+    return tenant;
   }
 
   public listPoolAccounts(): PoolAccountLiveStatus[] {

@@ -8,7 +8,11 @@
  * - Safe database logging to Prisma (safeDbQuery fallback).
  */
 
-import { getSanctumAgentById, ZOE_COO, AgentNode } from '../registry/aiccHierarchy.js';
+import {
+  getSanctumAgentById,
+  resolveSanctumReportingChain,
+  AgentNode,
+} from '../registry/aiccHierarchy.js';
 import { db, safeDbQuery } from '../../../server/db.js';
 
 export interface TaskDelegationRequest {
@@ -75,12 +79,12 @@ export class SanctumAgentRunner {
       throw new Error(`Target agent ${request.targetAgentId} not found in Sanctum Hierarchy.`);
     }
 
-    // Build the delegation chain: Zoe -> (Director) -> Manager
-    const chain: string[] = [initiatorId];
-    if (targetAgent.reportingTo && targetAgent.reportingTo !== initiatorId) {
-      chain.push(targetAgent.reportingTo);
+    // Build complete upward chain: Zoe -> Director -> Manager -> Assistant Manager -> Supervisor
+    const fullChain = resolveSanctumReportingChain(targetAgent.id);
+    const chain: string[] = fullChain.length > 0 ? fullChain : [initiatorId, targetAgent.id];
+    if (chain[0] !== initiatorId && !chain.includes(initiatorId)) {
+      chain.unshift(initiatorId);
     }
-    chain.push(targetAgent.id);
 
     const startedAt = new Date().toISOString();
 
@@ -166,6 +170,15 @@ export class SanctumAgentRunner {
     switch (agent.id) {
       case 'linda':
         return this.handleLindaChannel(taskType, payload);
+      case 'diana-email':
+        return {
+          agent: 'AI Diana Supervisor',
+          code: 'SUP-02-6-01-1',
+          channel: 'Property Owner Gmail Campaigns (the.arslan.broker@gmail.com)',
+          actionTaken: 'Email Campaign Audited & Queued',
+          taskType,
+          data: payload,
+        };
       case 'henry':
         return this.handleHenryVault(taskType, payload);
       case 'mary-inventory':

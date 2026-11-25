@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { getOrInitLindaRuntime, db } from './lindaCommon.js';
+import { lindaMultiSimPool } from '../../services/whatsapp/LindaMultiSimPoolService.js';
 import {
   lindaMasterRegistry,
   generateLindaSelfDiagnosticReport,
@@ -21,6 +22,7 @@ export const getLindaMetrics = async (_req: Request, res: Response) => {
   try {
     const { linda } = await getOrInitLindaRuntime();
     const stats = linda.getStats();
+    const pool = lindaMultiSimPool.getPoolTelemetry();
     const mem = process.memoryUsage();
     const uptimeSeconds = Math.floor(process.uptime());
     const hours = Math.floor(uptimeSeconds / 3600);
@@ -36,11 +38,12 @@ export const getLindaMetrics = async (_req: Request, res: Response) => {
       data: {
         uptime: uptimeFormatted,
         uptimeSeconds,
-        activeSessions: stats.isConnected ? 3 : 2,
-        rateLimit: `${stats.messagesSent || 18} / 60 min`,
+        activeSessions: pool.connectedCount,
+        poolSize: pool.poolSize,
+        rateLimit: `${pool.antiBanPolicy.totalHourlyUsed} / ${pool.antiBanPolicy.totalHourlyCapacity} hr`,
         memory: `${Math.round(mem.rss / 1024 / 1024)} MB`,
         heapUsed: `${Math.round(mem.heapUsed / 1024 / 1024)} MB`,
-        botStats: stats,
+        botStats: { ...stats, isConnected: pool.connectedCount > 0 || stats.isConnected },
         masterPosture,
         outreachBudget,
         timestamp: new Date().toISOString(),
@@ -157,15 +160,28 @@ export const getLindaMasterPosture = async (_req: Request, res: Response) => {
 export const pingLindaSession = async (req: Request, res: Response) => {
   try {
     const { id } = req.params as Record<string, string>;
+    const account = lindaMultiSimPool.findAccount(id);
+    if (!account) {
+      return res.status(404).json({
+        success: false,
+        error: `WhatsApp session "${id}" not found in 10-SIM pool.`,
+      });
+    }
+    const live = lindaMultiSimPool.listPoolAccounts().find(a => a.id === account.id);
+    const isConnected = Boolean(live?.isConnected);
     res.json({
       success: true,
       data: {
-        id,
-        status: 'connected',
-        linkState: 'LINKED',
-        connState: 'CONNECTED',
+        id: account.id,
+        phone: account.phoneNumber,
+        isConnected,
+        status: isConnected ? 'connected' : String(live?.engineStatus || 'DISCONNECTED').toLowerCase(),
+        linkState: isConnected || live?.sessionDirExists ? 'LINKED' : 'NOT LINKED',
+        connState: isConnected ? 'CONNECTED' : 'OFFLINE',
         lastActivity: new Date().toISOString(),
-        message: `Session ${id} heartbeat verified and keep-alive refreshed.`,
+        message: isConnected
+          ? `Session ${account.phoneNumber} heartbeat verified (CONNECTED).`
+          : `Session ${account.phoneNumber} is currently ${live?.engineStatus || 'DISCONNECTED'}. Scan QR or click Connect.`,
       },
     });
   } catch (err) {
@@ -190,6 +206,7 @@ export const streamLindaMetrics = async (req: Request, res: Response) => {
     try {
       const { linda } = await getOrInitLindaRuntime();
       const stats = linda.getStats();
+      const pool = lindaMultiSimPool.getPoolTelemetry();
       const mem = process.memoryUsage();
       const uptimeSeconds = Math.floor(process.uptime());
       const hours = Math.floor(uptimeSeconds / 3600);
@@ -203,11 +220,12 @@ export const streamLindaMetrics = async (req: Request, res: Response) => {
       const payload = {
         uptime: uptimeFormatted,
         uptimeSeconds,
-        activeSessions: stats.isConnected ? 3 : 2,
-        rateLimit: `${stats.messagesSent || 18} / 60 min`,
+        activeSessions: pool.connectedCount,
+        poolSize: pool.poolSize,
+        rateLimit: `${pool.antiBanPolicy.totalHourlyUsed} / ${pool.antiBanPolicy.totalHourlyCapacity} hr`,
         memory: `${Math.round(mem.rss / 1024 / 1024)} MB`,
         heapUsed: `${Math.round(mem.heapUsed / 1024 / 1024)} MB`,
-        botStats: stats,
+        botStats: { ...stats, isConnected: pool.connectedCount > 0 || stats.isConnected },
         masterPosture,
         outreachBudget,
         timestamp: new Date().toISOString(),
@@ -215,13 +233,13 @@ export const streamLindaMetrics = async (req: Request, res: Response) => {
 
       res.write(`data: ${JSON.stringify(payload)}\n\n`);
     } catch {
-      // In dev fallback, write safe default snapshot
       res.write(
         `data: ${JSON.stringify({
-          uptime: '14d 06h 42m',
-          activeSessions: 3,
-          rateLimit: '18 / 60 min',
-          memory: '112 MB',
+          uptime: '0h 0m 0s',
+          activeSessions: 0,
+          poolSize: 10,
+          rateLimit: '0 / 162 hr',
+          memory: '0 MB',
           timestamp: new Date().toISOString(),
         })}\n\n`
       );

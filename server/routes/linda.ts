@@ -45,6 +45,8 @@ import {
   getMdFollowUpQueue,
   patchMdFollowUpQueueItem,
   getDueCadenceTouchesHandler,
+  listOutreachJobsHandler,
+  getOutreachJobHandler,
   getWarmDh2Contacts,
   getWarmSequenceTemplates,
   launchWarmDh2Sequence,
@@ -129,6 +131,8 @@ router.get('/warm-contacts', requirePermission('view_whatsapp_conversations'), g
 router.get('/campaigns/sequences', requirePermission('view_whatsapp_conversations'), getWarmSequenceTemplates);
 router.post('/campaigns/warm-sequence-launch', requireRole('owner', 'admin'), launchWarmDh2Sequence);
 router.get('/campaigns/delivery-logs', requirePermission('view_whatsapp_conversations'), getCampaignDeliveryLogs);
+router.get('/campaigns/jobs', requirePermission('view_whatsapp_conversations'), listOutreachJobsHandler);
+router.get('/campaigns/jobs/:jobId', requirePermission('view_whatsapp_conversations'), getOutreachJobHandler);
 router.post('/campaigns/audit-message', requirePermission('view_whatsapp_conversations'), auditOutboundMessageHandler);
 router.post('/test-dispatch', requireRole('owner', 'admin'), runLindaTestDispatch);
 router.get('/md-followup-queue', requireRole('owner', 'admin'), getMdFollowUpQueue);

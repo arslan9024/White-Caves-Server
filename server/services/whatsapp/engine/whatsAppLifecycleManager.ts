@@ -1,5 +1,8 @@
+import fs from 'node:fs';
+import path from 'node:path';
 import type { WhatsAppEngineCore } from './whatsAppEngineCore.js';
 import type { WhatsAppEngineConfig, WhatsAppEngineStatus } from './whatsAppEngineTypes.js';
+import { sanitizeSessionLocks } from './localAuthLockSanitizer.js';
 
 export interface WhatsAppInitOptions {
   clientId: string;
@@ -10,14 +13,47 @@ export interface WhatsAppInitOptions {
   reconnectDelay: number;
 }
 
+const WINDOWS_BROWSER_CANDIDATES = [
+  'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+  'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
+  'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
+  'C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe',
+];
+
+const LINUX_BROWSER_CANDIDATES = [
+  '/usr/bin/google-chrome',
+  '/usr/bin/chromium',
+  '/usr/bin/chromium-browser',
+];
+
+/**
+ * Resolve a usable Chrome/Chromium/Edge binary when Puppeteer download is skipped.
+ */
+export function resolvePuppeteerExecutablePath(): string | undefined {
+  const configured = (process.env.PUPPETEER_EXECUTABLE_PATH || process.env.CHROME_BIN || '').trim();
+  if (configured && fs.existsSync(configured)) {
+    return configured;
+  }
+
+  const candidates =
+    process.platform === 'win32'
+      ? WINDOWS_BROWSER_CANDIDATES
+      : process.platform === 'darwin'
+        ? ['/Applications/Google Chrome.app/Contents/MacOS/Google Chrome']
+        : LINUX_BROWSER_CANDIDATES;
+
+  return candidates.find(candidate => fs.existsSync(candidate));
+}
+
 /**
  * Initialize WhatsApp connection using whatsapp-web.js LocalAuth.
  */
 export async function initializeWhatsAppClient(
-  engine: WhatsAppEngineCore,
+  _engine: WhatsAppEngineCore,
   config: Required<WhatsAppEngineConfig>,
   setStatus: (status: WhatsAppEngineStatus) => void,
-  setupListeners: (client: any) => void
+  setupListeners: (client: any) => void,
+  onClientCreated?: (client: any) => void
 ): Promise<any> {
   setStatus('AUTHENTICATING' as WhatsAppEngineStatus);
   console.log(`[WhatsAppEngine] Initializing WhatsApp LocalAuth client for ${config.clientId}...`);
@@ -26,24 +62,33 @@ export async function initializeWhatsAppClient(
   const wwjs = await import('whatsapp-web.js');
   const { Client, LocalAuth } = wwjs.default ?? wwjs;
 
-  const fs = await import('fs');
   if (!fs.existsSync(config.sessionPath)) {
     fs.mkdirSync(config.sessionPath, { recursive: true });
   }
 
+  // Clear stale Chromium SingletonLock/Cookie/Socket files before launch
+  const sessionDir = path.join(config.sessionPath, `session-${config.clientId}`);
+  if (fs.existsSync(sessionDir)) {
+    const cleaned = sanitizeSessionLocks(sessionDir).filter(r => r.deleted);
+    if (cleaned.length > 0) {
+      console.log(
+        `[WhatsAppEngine:${config.clientId}] Cleaned stale lock files: ${cleaned.map(c => c.file).join(', ')}`
+      );
+    }
+  }
+
+  const executablePath = resolvePuppeteerExecutablePath();
+  const customWaWebVersionUrl = (process.env.LINDA_WA_WEB_VERSION_URL || '').trim();
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const client = new Client({
+  const clientOptions: Record<string, any> = {
     authStrategy: new LocalAuth({
       clientId: config.clientId,
       dataPath: config.sessionPath,
     }),
-    webVersionCache: {
-      type: 'remote',
-      remotePath:
-        'https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/2.3000.1018944883-alpha.html',
-    },
     puppeteer: {
       headless: config.headless,
+      ...(executablePath ? { executablePath } : {}),
       args: [
         '--no-sandbox',
         '--disable-setuid-sandbox',
@@ -57,8 +102,17 @@ export async function initializeWhatsAppClient(
     },
     restartOnAuthFail: true,
     takeoverOnConflict: true,
-  } as any);
+  };
 
+  if (customWaWebVersionUrl) {
+    clientOptions.webVersionCache = {
+      type: 'remote',
+      remotePath: customWaWebVersionUrl,
+    };
+  }
+
+  const client = new Client(clientOptions);
+  onClientCreated?.(client);
   setupListeners(client);
   await client.initialize();
   return client;

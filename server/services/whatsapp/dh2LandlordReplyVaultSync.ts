@@ -11,6 +11,8 @@
 import { prisma } from '../../database.js';
 import { createLogger } from '../../utils/logger.js';
 import { createHunterToPrimaryMasterHandoff } from './leasingSimOutreachFormula.js';
+import { DH2_ALL_CLUSTERS, routeInboundTenantViewingInquiry } from './dh2TenantViewingRouter.js';
+export { DH2_ALL_CLUSTERS, routeInboundTenantViewingInquiry };
 import type { OrgJobRole } from '../rbac/leasingRoleClearanceMatrix.js';
 import {
   cancelPendingLandlordCadence,
@@ -35,14 +37,6 @@ export const DH2_LANDLORD_TEMPLATES = [
   'Hello {{ownerName}}, this is Linda from White Caves Real Estate LLC (DAMAC Hills 2 Leasing Desk). We have pre-qualified tenants looking for {{bedrooms}}BR homes in {{cluster}}, DAMAC Hills 2. Is your property available for rent soon? Schedule directly with Arslan Malik via https://whitecaves.ae or reply STOP to opt out.',
   'Hi {{ownerName}}, White Caves Real Estate LLC here. Demand for {{cluster}} in DAMAC Hills 2 is very strong this week — are you considering leasing your {{bedrooms}}BR residence? We handle verified viewings with Arslan Malik and Ejari directly at https://whitecaves.ae. Reply STOP to opt out.',
   'Greetings {{ownerName}}! Linda from White Caves Real Estate (DAMAC Hills 2 Specialists). We currently have active corporate tenants searching in {{cluster}}. Would you like Arslan Malik to feature your residence on https://whitecaves.ae at zero landlord commission? Reply STOP to opt out.',
-];
-
-export const DH2_ALL_CLUSTERS = [
-  'Pacifica', 'Camelia', 'Albizia', 'Basswood', 'Clivia', 'Amargo', 'Zinnia', 'Mimosa',
-  'Vardon', 'Juniper', 'Sycamore', 'Coursetia', 'Centauri', 'Sanctuary', 'Mulberry',
-  'Acuna', 'Aknan', 'Aster', 'Avencia', 'Centaury', 'Dahlia', 'Elo', 'Fiora', 'Flamingo',
-  'Hawthorn', 'Janusia', 'Just Cavalli', 'Navitas', 'Odora', 'Paloverde', 'Park Greens',
-  'Primrose', 'Trixis', 'Verona', 'Virdis', 'Violet', 'Water Town', 'Victoria',
 ];
 
 const NEGATIVE_REPLY_RE =
@@ -282,61 +276,5 @@ export async function processLandlordAvailabilityReply(input: {
     vaultPropertyId,
     handoff,
     mdQueueItem,
-  };
-}
-
-export async function routeInboundTenantViewingInquiry(input: {
-  fromPhone: string;
-  message: string;
-  tenantName?: string;
-  receivedOnLine?: string;
-  preferredDate?: string;
-  primaryMasterPhone?: string;
-  dbOverride?: any;
-}) {
-  const text = input.message.toLowerCase();
-  const isRentalViewingIntent =
-    /(rent|lease|view|viewing|visit|damac|hills 2|dh2|akoya|camelia|albizia|basswood|pacifica|clivia|amargo|townhouse|villa|bedroom|br)/i.test(text);
-  const matchedCluster = DH2_ALL_CLUSTERS.find(c => text.includes(c.toLowerCase())) || 'DAMAC Hills 2';
-  const bedMatch = text.match(/(\d)\s*(?:br|bed|bhk|bedroom)/i);
-  const bedrooms = bedMatch ? Number(bedMatch[1]) : 3;
-  const cleanPhone = String(input.fromPhone || '').replace(/\D/g, '');
-  if (!isRentalViewingIntent) return { routed: false, reason: 'No rental/viewing intent detected', cleanPhone };
-
-  const db = input.dbOverride || defaultDb;
-  let leadId: string | null = null;
-  try {
-    const existing = await db.lead?.findFirst?.({
-      where: { phone: { contains: cleanPhone.slice(-9) } },
-      select: { id: true },
-    });
-    if (existing?.id) leadId = existing.id;
-    else if (db.lead?.create) {
-      const created = await db.lead.create({
-        data: {
-          name: input.tenantName || `DH2 Tenant (${cleanPhone})`,
-          phone: `+${cleanPhone}`,
-          email: `tenant-${cleanPhone}@whitecaves.local`,
-          source: 'WHATSAPP_LINDA',
-          status: 'VIEWING_SCHEDULED',
-          notes: `Auto-routed by Linda (${input.receivedOnLine || input.primaryMasterPhone || '+971505760056'}) → Daisy (MGR-05-2): ${matchedCluster} ${bedrooms}BR. Msg: ${input.message.slice(0, 240)}`,
-        },
-      });
-      leadId = created.id;
-    }
-  } catch (err) {
-    log.warn('Lead persistence skipped during inbound viewing routing:', err instanceof Error ? err.message : err);
-  }
-
-  const scheduledAt = input.preferredDate ? new Date(input.preferredDate) : new Date(Date.now() + 24 * 60 * 60 * 1000);
-  return {
-    routed: true,
-    delegatedTo: { id: 'MGR-05-2', name: 'Daisy', department: 'Leasing & Tenancy' },
-    leadId,
-    tenantPhone: `+${cleanPhone}`,
-    cluster: matchedCluster,
-    bedrooms,
-    proposedViewingAt: scheduledAt.toISOString(),
-    suggestedReply: `Thank you for contacting White Caves Real Estate LLC! Our DAMAC Hills 2 leasing specialist Daisy has reserved a ${bedrooms}BR viewing slot in ${matchedCluster} for ${scheduledAt.toLocaleString('en-AE', { timeZone: 'Asia/Dubai' })}. Reply YES to confirm or share your preferred time.`,
   };
 }

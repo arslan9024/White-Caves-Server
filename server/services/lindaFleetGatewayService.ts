@@ -1,21 +1,23 @@
 /**
  * Linda Multi-SIM Fleet Gateway Service
- * White Caves Ecosystem — AI Communications Mesh (DEPT-08 / MGR-08-1)
+ * White Caves Ecosystem — AI Linda WhatsApp Supervisor (DEPT-08 / SUP-08-1-01-1)
  *
- * Provides:
- *  - High-availability multi-SIM dispatch across 5 business numbers
- *  - Automatic line health monitoring and seamless failover
- *  - Concurrency control and inbound routing to Daisy/Henry/Mary
+ * Syncs strictly with the canonical 10-SIM fleet (1 Primary Master Closer +971505760056
+ * + 9 Hunter Outreach SIMs) and routes inbound inquiries across Linda, Mary, Daisy, and Henry.
  */
 
 import logger from '../utils/logger.js';
 import { AppError } from '../middleware/errorHandler.js';
+import { CANONICAL_10_SIM_FLEET } from './whatsapp/leasingSimOutreachFormula.js';
+import { lindaMultiSimPool } from './whatsapp/LindaMultiSimPoolService.js';
 
 export interface SimLineStatus {
   lineId: string;
   phoneNumber: string;
   label: string;
+  simTier: 'PRIMARY_MASTER_CLOSER' | 'HUNTER_OUTREACH';
   isActive: boolean;
+  isConnected: boolean;
   healthScore: number; // 0 - 100
   activeConversations: number;
   dailyDispatchedCount: number;
@@ -31,33 +33,59 @@ export interface InboundMessagePayload {
 }
 
 export class LindaFleetGatewayService {
-  private static simLines: Map<string, SimLineStatus> = new Map([
-    ['sim-1', { lineId: 'sim-1', phoneNumber: '+971501111001', label: 'Primary Concierge', isActive: true, healthScore: 98, activeConversations: 12, dailyDispatchedCount: 140 }],
-    ['sim-2', { lineId: 'sim-2', phoneNumber: '+971501111002', label: 'DAMAC Hills 2 Outreach', isActive: true, healthScore: 95, activeConversations: 18, dailyDispatchedCount: 210 }],
-    ['sim-3', { lineId: 'sim-3', phoneNumber: '+971501111003', label: 'VIP Investor Relations', isActive: true, healthScore: 100, activeConversations: 5, dailyDispatchedCount: 45 }],
-    ['sim-4', { lineId: 'sim-4', phoneNumber: '+971501111004', label: 'Leasing Fast-Response', isActive: true, healthScore: 92, activeConversations: 22, dailyDispatchedCount: 190 }],
-    ['sim-5', { lineId: 'sim-5', phoneNumber: '+971501111005', label: 'Escalations & Handoffs', isActive: true, healthScore: 99, activeConversations: 8, dailyDispatchedCount: 65 }],
-  ]);
+  private static buildLiveFleetMap(): Map<string, SimLineStatus> {
+    const liveAccounts = lindaMultiSimPool.listPoolAccounts();
+    const map = new Map<string, SimLineStatus>();
 
-  public static listFleetLines(): SimLineStatus[] {
-    return Array.from(this.simLines.values());
+    CANONICAL_10_SIM_FLEET.forEach((sim, idx) => {
+      const live = liveAccounts.find(a => a.id === sim.id || a.phoneNumber === sim.phoneNumber);
+      const hourlyUsed = live?.hourlySent ?? 0;
+      const healthScore = live?.isConnected ? 100 : live?.sessionDirExists ? 90 : 85;
+      map.set(sim.id, {
+        lineId: sim.id,
+        phoneNumber: sim.phoneNumber,
+        label: sim.displayName,
+        simTier: sim.tier,
+        isActive: true,
+        isConnected: Boolean(live?.isConnected),
+        healthScore,
+        activeConversations: (live?.messagesReceived ?? 0) + idx,
+        dailyDispatchedCount: hourlyUsed,
+      });
+    });
+
+    return map;
   }
 
-  public static selectBestDispatchLine(preferredLineId?: string): SimLineStatus {
-    if (preferredLineId && this.simLines.has(preferredLineId)) {
-      const preferred = this.simLines.get(preferredLineId)!;
-      if (preferred.isActive && preferred.healthScore >= 70) {
+  public static listFleetLines(): SimLineStatus[] {
+    return Array.from(this.buildLiveFleetMap().values());
+  }
+
+  public static selectBestDispatchLine(preferredLineId?: string, allowMasterCloser = false): SimLineStatus {
+    const simLines = this.buildLiveFleetMap();
+    if (preferredLineId && simLines.has(preferredLineId)) {
+      const preferred = simLines.get(preferredLineId)!;
+      if (
+        preferred.isActive &&
+        preferred.healthScore >= 70 &&
+        (allowMasterCloser || preferred.simTier === 'HUNTER_OUTREACH')
+      ) {
         return preferred;
       }
-      logger.warn(`[LindaFleet] Preferred line ${preferredLineId} degraded or inactive; falling back to best healthy line.`);
+      logger.warn(
+        `[LindaFleet] Preferred line ${preferredLineId} degraded or protected; falling back to best Hunter line.`
+      );
     }
 
-    const available = Array.from(this.simLines.values())
-      .filter(line => line.isActive && line.healthScore >= 80)
-      .sort((a, b) => a.activeConversations - b.activeConversations);
+    const available = Array.from(simLines.values())
+      .filter(line => line.isActive && line.healthScore >= 80 && (allowMasterCloser || line.simTier === 'HUNTER_OUTREACH'))
+      .sort((a, b) => {
+        if (a.isConnected !== b.isConnected) return a.isConnected ? -1 : 1;
+        return a.dailyDispatchedCount - b.dailyDispatchedCount || a.activeConversations - b.activeConversations;
+      });
 
     if (!available.length) {
-      throw new AppError('No healthy WhatsApp SIM lines available in Linda fleet', 503);
+      throw new AppError('No healthy WhatsApp SIM lines available in Linda 10-SIM fleet', 503);
     }
 
     return available[0];
@@ -79,17 +107,34 @@ export class LindaFleetGatewayService {
 
   public static routeToAutonomousAgent(intent: InboundMessagePayload['intent']): {
     targetAgent: 'daisy' | 'henry' | 'mary' | 'linda';
+    employeeCode: string;
     targetRole: string;
   } {
     switch (intent) {
       case 'TENANT_LEASING':
-        return { targetAgent: 'daisy', targetRole: 'Residential Leasing & Tenancy Manager' };
+        return {
+          targetAgent: 'daisy',
+          employeeCode: 'SUP-05-2-01-1',
+          targetRole: 'Residential Leasing & Tenancy Supervisor (DEPT-05)',
+        };
       case 'LANDLORD_INQUIRY':
-        return { targetAgent: 'linda', targetRole: 'Head of WhatsApp Real Estate Automation' };
+        return {
+          targetAgent: 'linda',
+          employeeCode: 'SUP-08-1-01-1',
+          targetRole: 'WhatsApp Real Estate Automation Supervisor (DEPT-08)',
+        };
       case 'BUYER_VIEWING':
-        return { targetAgent: 'mary', targetRole: 'VIP Inventory & Off-Plan Specialist' };
+        return {
+          targetAgent: 'mary',
+          employeeCode: 'SUP-06-1-01-1',
+          targetRole: 'DAMAC Hills 2 Master Inventory Vault Supervisor (DEPT-06)',
+        };
       default:
-        return { targetAgent: 'linda', targetRole: 'Concierge Automation Assistant' };
+        return {
+          targetAgent: 'linda',
+          employeeCode: 'SUP-08-1-01-1',
+          targetRole: 'WhatsApp Concierge Automation Supervisor (DEPT-08)',
+        };
     }
   }
 }

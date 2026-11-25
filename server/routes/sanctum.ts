@@ -21,6 +21,7 @@ import {
   AgentNode,
   getAllSanctumAgents,
   getSanctumAgentById,
+  OPERATIONAL_SUPERVISOR_SUMMARIES,
   SANCTUM_DEPARTMENTS,
   ZOE_COO,
 } from '../../src/agents/registry/aiccHierarchy.js';
@@ -141,10 +142,19 @@ router.post('/delegate', async (req: Request, res: Response) => {
   }
 });
 
-// ── POST /api/sanctum/bridge/:agentId (Mary / Daisy / Henry / Linda) ─────────
+// ── GET /api/sanctum/supervisors (Full Zoe -> Dir -> Mgr -> AM -> Supervisor Chains) ─
+router.get('/supervisors', (_req: Request, res: Response) => {
+  res.json({
+    topology: 'MD -> COO (Zoe) -> 12 Directors -> 108 Managers -> 1,296 Assistant Managers -> 11,664 Supervisors',
+    supervisors: OPERATIONAL_SUPERVISOR_SUMMARIES,
+    totalOperationalSupervisors: OPERATIONAL_SUPERVISOR_SUMMARIES.length,
+  });
+});
+
+// ── POST /api/sanctum/bridge/:agentId (Diana / Mary / Daisy / Henry / Linda) ─
 router.post('/bridge/:agentId', async (req: Request, res: Response) => {
   const agentId = String(req.params.agentId);
-  const validBridges = ['mary-inventory', 'daisy-leasing', 'henry', 'linda'];
+  const validBridges = ['diana-email', 'mary-inventory', 'daisy-leasing', 'henry', 'linda'];
 
   if (!validBridges.includes(agentId)) {
     return res.status(400).json({
@@ -197,7 +207,7 @@ router.post('/managers', (req: Request, res: Response) => {
     return res.status(400).json({ error: "Aegis engineering names cannot be added to Zoe's Team (AICC-Sanctum)." });
   }
   if (gender !== 'Female') {
-    return res.status(400).json({ error: 'All AICC-Sanctum agents must be female-named except sole male officer Henry (MGR-11-1).' });
+    return res.status(400).json({ error: 'All AICC-Sanctum agents must be female-named except sole male officer AI Henry Supervisor (SUP-11-1-01-1).' });
   }
 
   const slot = dept.managers.length + 1;

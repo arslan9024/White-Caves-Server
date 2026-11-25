@@ -18,7 +18,6 @@ import {
   normalizeIncomingMessage,
   formatChatId,
   sanitizePhoneNumber,
-  generateFallbackPairingCode,
 } from './whatsAppMessageHelpers.js';
 import { setWhatsAppEngine } from './whatsAppEngineRegistry.js';
 import {
@@ -57,6 +56,7 @@ export class WhatsAppEngine extends EventEmitter implements WhatsAppEngineCore {
   private messagesReceived = 0;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private client: any = null;
+  private initPromise: Promise<void> | null = null;
 
   constructor(config: WhatsAppEngineConfig) {
     super();
@@ -80,21 +80,32 @@ export class WhatsAppEngine extends EventEmitter implements WhatsAppEngineCore {
 
   public async initialize(): Promise<void> {
     if (this.sessionActive && this.clientAuthenticated) return;
-    try {
-      this.clientAuthenticated = false;
-      this.client = await initializeWhatsAppClient(
-        this,
-        this.config,
-        (s) => this.setStatus(s),
-        (client) => this.setupEventListeners(client)
-      );
-    } catch (error) {
-      this.clientAuthenticated = false;
-      this.setStatus(WhatsAppEngineStatus.ERROR);
-      console.error(`[WhatsAppEngine] Initialization failed for ${this.config.clientId}:`, error);
-      this.emit('error', error);
-      throw error;
-    }
+    if (this.initPromise) return this.initPromise;
+
+    this.initPromise = (async () => {
+      try {
+        this.clientAuthenticated = false;
+        this.client = await initializeWhatsAppClient(
+          this,
+          this.config,
+          (s) => this.setStatus(s),
+          (client) => this.setupEventListeners(client),
+          (client) => {
+            this.client = client;
+          }
+        );
+      } catch (error) {
+        this.clientAuthenticated = false;
+        this.setStatus(WhatsAppEngineStatus.ERROR);
+        console.error(`[WhatsAppEngine] Initialization failed for ${this.config.clientId}:`, error);
+        this.emit('error', error);
+        throw error;
+      } finally {
+        this.initPromise = null;
+      }
+    })();
+
+    return this.initPromise;
   }
 
   private setupEventListeners(client: any): void {
@@ -164,19 +175,25 @@ export class WhatsAppEngine extends EventEmitter implements WhatsAppEngineCore {
   }
 
   public async requestPairingCode(phoneNumber: string): Promise<string> {
-    if (!this.client) await this.initialize();
-    const sanitizedNumber = sanitizePhoneNumber(phoneNumber);
-    try {
-      if (typeof this.client?.requestPairingCode === 'function') {
-        const code = await this.client.requestPairingCode(sanitizedNumber);
-        console.log(`[WhatsAppEngine:${this.config.clientId}] Pairing code generated for ${sanitizedNumber}: ${code}`);
-        return code;
+    if (!this.client) {
+      void this.initialize().catch(() => {});
+      // Wait up to 8s for Puppeteer client & page to mount before requesting pairing code
+      for (let i = 0; i < 16 && !this.client?.pupPage; i++) {
+        await new Promise(resolve => setTimeout(resolve, 500));
       }
-      return generateFallbackPairingCode(sanitizedNumber);
-    } catch (err) {
-      console.error(`[WhatsAppEngine:${this.config.clientId}] Error generating pairing code:`, err);
-      return generateFallbackPairingCode(sanitizedNumber);
     }
+    const sanitizedNumber = sanitizePhoneNumber(phoneNumber);
+    if (typeof this.client?.requestPairingCode !== 'function') {
+      throw new Error(
+        `WhatsApp client for ${this.config.clientId} is still initializing or does not support pairing codes yet. Retry in 5 seconds or use Live QR.`
+      );
+    }
+    const code = await this.client.requestPairingCode(sanitizedNumber, true);
+    if (!code || typeof code !== 'string') {
+      throw new Error(`WhatsApp did not return a valid pairing code for +${sanitizedNumber}`);
+    }
+    console.log(`[WhatsAppEngine:${this.config.clientId}] Pairing code generated for ${sanitizedNumber}`);
+    return code;
   }
 
   public async sendMessage(phoneNumber: string, message: string): Promise<string> {
@@ -308,24 +325,18 @@ export class WhatsAppEngine extends EventEmitter implements WhatsAppEngineCore {
   private async attemptReconnect(): Promise<void> {
     if (this.reconnectAttempts >= this.config.maxReconnectAttempts) {
       this.setStatus(WhatsAppEngineStatus.ERROR);
-      console.error(`[WhatsAppEngine:${this.config.clientId}] Max reconnection attempts reached`);
       return;
     }
-
     this.reconnectAttempts += 1;
     const delay = calculateReconnectDelay(this.config.reconnectDelay, this.reconnectAttempts);
-    console.log(
-      `[WhatsAppEngine:${this.config.clientId}] Reconnect attempt ${this.reconnectAttempts}/${this.config.maxReconnectAttempts} in ${delay}ms`
-    );
     this.setStatus(WhatsAppEngineStatus.RECONNECTING);
-
     setTimeout(async () => {
       try {
         this.sessionActive = false;
         this.client = null;
         await this.initialize();
       } catch (err) {
-        console.error(`[WhatsAppEngine:${this.config.clientId}] Reconnection attempt failed:`, err);
+        console.error(`[WhatsAppEngine:${this.config.clientId}] Reconnection failed:`, err);
         await this.attemptReconnect();
       }
     }, delay);

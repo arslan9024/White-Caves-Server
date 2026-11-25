@@ -15,6 +15,11 @@ import {
   listMdPrimaryMasterQueue,
   updateMdFollowUpQueueItem,
 } from '../../services/whatsapp/aiConversationAnalyzerService.js';
+import {
+  getOutreachJob,
+  listOutreachJobs,
+  startBackgroundOutreachJob,
+} from '../../services/whatsapp/lindaOutreachJobRunner.js';
 
 export const getPoolTelemetry = async (_req: Request, res: Response) => {
   try {
@@ -109,10 +114,25 @@ export const dispatchPoolCampaignNow = async (req: Request, res: Response) => {
       : typeof body.message === 'string' && body.message.trim()
         ? [body.message.trim()]
         : DH2_LANDLORD_TEMPLATES;
+    const isDryRun = body.dryRun === true;
+    if (!isDryRun && recipients.length > 1 && body.sync !== true) {
+      const job = startBackgroundOutreachJob({
+        label: `Pool Rotated Outreach (${recipients.length} recipients)`,
+        totalRecipients: recipients.length,
+        runner: () =>
+          lindaMultiSimPool.dispatchRotatedOutreach({
+            recipients,
+            templates,
+            dryRun: false,
+            respectBusinessHours: body.respectBusinessHours !== false,
+          }),
+      });
+      return res.status(202).json({ success: true, asyncJob: true, data: job });
+    }
     const result = await lindaMultiSimPool.dispatchRotatedOutreach({
       recipients,
       templates,
-      dryRun: body.dryRun === true,
+      dryRun: isDryRun,
       respectBusinessHours: body.respectBusinessHours !== false,
     });
     res.json({ success: true, data: result });
@@ -174,10 +194,34 @@ export const launchDH2LandlordCampaign = async (req: Request, res: Response) => 
       unitRef: r.unitRef || `${r.cluster || cluster || 'DH2'} Villa`,
       bedrooms: String(r.bedrooms || '3'),
     }));
+    const isDryRun = body.dryRun === true;
+    if (!isDryRun && normalized.length > 1 && body.sync !== true) {
+      const job = startBackgroundOutreachJob({
+        label: `Mission 1 DH2 Landlord Outreach — ${cluster || 'All Clusters'}`,
+        totalRecipients: normalized.length,
+        runner: () =>
+          lindaMultiSimPool.dispatchRotatedOutreach({
+            recipients: normalized,
+            templates: Array.isArray(body.templates) ? body.templates : DH2_LANDLORD_TEMPLATES,
+            dryRun: false,
+            respectBusinessHours: body.respectBusinessHours !== false,
+          }),
+      });
+      return res.status(202).json({
+        success: true,
+        asyncJob: true,
+        data: {
+          campaign: job.label,
+          antiBanPacing: '35–65s Gaussian Jitter across 9 Hunter SIMs (18/hr cap per SIM; +971505760056 hard-protected)',
+          ingestionSummary,
+          ...job,
+        },
+      });
+    }
     const result = await lindaMultiSimPool.dispatchRotatedOutreach({
       recipients: normalized,
       templates: Array.isArray(body.templates) ? body.templates : DH2_LANDLORD_TEMPLATES,
-      dryRun: body.dryRun === true,
+      dryRun: isDryRun,
       respectBusinessHours: body.respectBusinessHours !== false,
     });
     res.json({
@@ -286,4 +330,16 @@ export const getDueCadenceTouchesHandler = async (_req: Request, res: Response) 
   } catch (err) {
     res.status(500).json({ success: false, error: err instanceof Error ? err.message : 'Due cadence fetch failed' });
   }
+};
+
+export const listOutreachJobsHandler = async (req: Request, res: Response) => {
+  const limit = req.query.limit ? Number(req.query.limit) : 20;
+  const jobs = listOutreachJobs(limit);
+  res.json({ success: true, data: { total: jobs.length, jobs } });
+};
+
+export const getOutreachJobHandler = async (req: Request, res: Response) => {
+  const job = getOutreachJob(String(req.params.jobId || ''));
+  if (!job) return res.status(404).json({ success: false, error: 'Outreach job not found' });
+  res.json({ success: true, data: job });
 };

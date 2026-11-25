@@ -30,19 +30,21 @@ export const sendMessage = async (req: Request, res: Response) => {
 
     let messageId: string;
     let resolvedAccount = 'linda-broadcast';
-    const poolAccount = accountPhone ? lindaMultiSimPool.findAccount(String(accountPhone)) : undefined;
+    const connectedPool = lindaMultiSimPool.getBestConnectedEngine(
+      accountPhone ? String(accountPhone) : undefined
+    );
 
-    if (poolAccount) {
-      const poolEngine = lindaMultiSimPool.getEngineForAccount(poolAccount);
-      resolvedAccount = poolAccount.phoneNumber;
-      if (poolEngine.isConnected()) {
-        messageId = await poolEngine.sendMessage(cleanPhone, message);
-      } else {
-        const { messageBridge } = await getOrInitLindaRuntime();
-        messageId = await messageBridge.send({ phoneNumber: cleanPhone, message });
-      }
+    if (connectedPool) {
+      resolvedAccount = connectedPool.account.phoneNumber;
+      messageId = await connectedPool.engine.sendMessage(cleanPhone, message);
     } else {
       const { linda, mode, messageBridge } = await getOrInitLindaRuntime();
+      if (!linda.isConnected()) {
+        return res.status(503).json({
+          success: false,
+          error: `WhatsApp line (${accountPhone || '+971505760056'}) is offline. Scan QR or pair device first.`,
+        });
+      }
       messageId = await messageBridge.send({ phoneNumber: cleanPhone, message });
       if (mode === 'shadow') {
         emitLindaParitySnapshot(buildLindaParitySnapshot('route_send', linda, mode));
@@ -111,24 +113,16 @@ export const broadcastMessages = async (req: Request, res: Response) => {
     }
 
     const { linda, mode, messageBridge } = await getOrInitLindaRuntime();
-
     res.json({
       success: true,
-      data: {
-        accepted: true,
-        recipients: cleanNumbers.length,
-        channel: 'LINDA_WHATSAPP',
-        timestamp: new Date(),
-      },
+      data: { accepted: true, recipients: cleanNumbers.length, channel: 'LINDA_WHATSAPP', timestamp: new Date() },
     });
 
     messageBridge
       .broadcast({ phoneNumbers: cleanNumbers, message: broadcastMessage })
       .then(results => {
         const failed = results.filter(r => r.error).length;
-        log.warn(
-          `[Linda] Broadcast complete: ${results.length - failed} sent, ${failed} failed`
-        );
+        log.warn(`[Linda] Broadcast complete: ${results.length - failed} sent, ${failed} failed`);
         getSocketServer()?.emitLindaMessage({
           id: `broadcast_${Date.now()}`,
           from: 'system',
@@ -137,18 +131,11 @@ export const broadcastMessages = async (req: Request, res: Response) => {
           hasMedia: false,
           type: 'chat',
         });
-
-        if (mode === 'shadow') {
-          emitLindaParitySnapshot(buildLindaParitySnapshot('route_broadcast', linda, mode));
-        }
+        if (mode === 'shadow') emitLindaParitySnapshot(buildLindaParitySnapshot('route_broadcast', linda, mode));
       })
-      .catch(err => {
-        log.error('[Linda] Broadcast error:', err);
-      });
+      .catch(err => log.error('[Linda] Broadcast error:', err));
   } catch (err) {
-    res
-      .status(500)
-      .json({ success: false, error: err instanceof Error ? err.message : 'Unknown error' });
+    res.status(500).json({ success: false, error: err instanceof Error ? err.message : 'Unknown error' });
   }
 };
 
@@ -237,19 +224,33 @@ export const webhookIngestion = async (req: Request, res: Response) => {
 export const getConversations = async (req: Request, res: Response) => {
   try {
     const accountPhone = typeof req.query.accountPhone === 'string' ? req.query.accountPhone : '';
-    const poolAccount = accountPhone ? lindaMultiSimPool.findAccount(accountPhone) : undefined;
-    if (poolAccount) {
-      const engine = lindaMultiSimPool.getEngineForAccount(poolAccount);
-      const conversations = engine.isConnected() ? await engine.getConversations() : [];
+    const connectedPool = lindaMultiSimPool.getBestConnectedEngine(accountPhone || undefined);
+    if (connectedPool) {
+      const conversations = await connectedPool.engine.getConversations();
       return res.json({
         success: true,
         data: {
           conversations,
           count: conversations.length,
-          accountPhone: poolAccount.phoneNumber,
+          accountPhone: connectedPool.account.phoneNumber,
           source: 'multi-sim-pool',
         },
       });
+    }
+
+    if (accountPhone) {
+      const poolAccount = lindaMultiSimPool.findAccount(accountPhone);
+      if (poolAccount) {
+        return res.json({
+          success: true,
+          data: {
+            conversations: [],
+            count: 0,
+            accountPhone: poolAccount.phoneNumber,
+            source: 'multi-sim-pool-offline',
+          },
+        });
+      }
     }
 
     const { messageBridge } = await getOrInitLindaRuntime();
@@ -267,20 +268,26 @@ export const getConversationHistory = async (req: Request, res: Response) => {
     const { phoneNumber } = req.params as Record<string, string>;
     const limit = req.query.limit ? parseInt(req.query.limit as string) : 50;
     const accountPhone = typeof req.query.accountPhone === 'string' ? req.query.accountPhone : '';
-    const poolAccount = accountPhone ? lindaMultiSimPool.findAccount(accountPhone) : undefined;
+    const connectedPool = lindaMultiSimPool.getBestConnectedEngine(accountPhone || undefined);
 
-    if (poolAccount) {
-      const engine = lindaMultiSimPool.getEngineForAccount(poolAccount);
-      const history = engine.isConnected() ? await engine.getConversationHistory(phoneNumber, limit) : [];
+    if (connectedPool) {
+      const history = await connectedPool.engine.getConversationHistory(phoneNumber, limit);
       return res.json({
         success: true,
         data: {
           phoneNumber,
-          accountPhone: poolAccount.phoneNumber,
+          accountPhone: connectedPool.account.phoneNumber,
           messages: history,
           count: history.length,
           source: 'multi-sim-pool',
         },
+      });
+    }
+
+    if (accountPhone && lindaMultiSimPool.findAccount(accountPhone)) {
+      return res.json({
+        success: true,
+        data: { phoneNumber, accountPhone, messages: [], count: 0, source: 'multi-sim-pool-offline' },
       });
     }
 
@@ -299,10 +306,7 @@ export const getGorahaSavedStatus = async (req: Request, res: Response) => {
   try {
     const { phoneNumber } = req.params as Record<string, string>;
     const cleanPhone = String(phoneNumber || '').replace(/\D/g, '');
-
-    if (cleanPhone.length < 8) {
-      return res.status(400).json({ success: false, error: 'Invalid phone number format' });
-    }
+    if (cleanPhone.length < 8) return res.status(400).json({ success: false, error: 'Invalid phone number format' });
 
     const { messageBridge } = await getOrInitLindaRuntime();
     const history = await messageBridge.getConversationHistory(cleanPhone, 1);
@@ -320,19 +324,12 @@ export const getGorahaSavedStatus = async (req: Request, res: Response) => {
           isCredentialValid: goraha.isCredentialValid,
           apiAccessValid: goraha.apiAccessValid,
         },
-        matchedContact: goraha.isSaved
-          ? {
-              name: goraha.matchedContactName || null,
-              phone: goraha.matchedPhone || null,
-            }
-          : null,
+        matchedContact: goraha.isSaved ? { name: goraha.matchedContactName || null, phone: goraha.matchedPhone || null } : null,
         details: goraha.error || null,
       },
     });
   } catch (err) {
-    res
-      .status(500)
-      .json({ success: false, error: err instanceof Error ? err.message : 'Unknown error' });
+    res.status(500).json({ success: false, error: err instanceof Error ? err.message : 'Unknown error' });
   }
 };
 

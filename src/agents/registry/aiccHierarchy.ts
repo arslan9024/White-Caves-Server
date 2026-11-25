@@ -6,7 +6,20 @@
  * Sanctum is isolated as "Zoe's Team" for White Caves operations.
  */
 
-export type AgentTier = 'COO' | 'DIRECTOR' | 'MANAGER' | 'STANDBY';
+import {
+  AGENT_ID_ALIASES,
+  OPERATIONAL_SUPERVISOR_SUMMARIES,
+  SANCTUM_ASSISTANT_MANAGERS,
+  SANCTUM_OPERATIONAL_SUPERVISORS,
+} from './aiccSupervisorChains.js';
+
+export {
+  OPERATIONAL_SUPERVISOR_SUMMARIES,
+  SANCTUM_ASSISTANT_MANAGERS,
+  SANCTUM_OPERATIONAL_SUPERVISORS,
+};
+
+export type AgentTier = 'COO' | 'DIRECTOR' | 'MANAGER' | 'ASSISTANT_MANAGER' | 'SUPERVISOR' | 'STANDBY';
 
 export interface AgentNode {
   id: string;
@@ -120,7 +133,7 @@ export const SANCTUM_DEPARTMENTS: DepartmentBranch[] = [
       { id: 'maya-social', code: 'MGR-02-3', name: 'AI Maya Social', gender: 'Female', tier: 'MANAGER', roleTitle: 'Social Media & Influencer Relations Manager', slot: 3, departmentCode: 'DEPT-02', reportingTo: 'olivia', allowedTools: ['social_scheduler'], systemPrompt: 'Curating Instagram, TikTok, LinkedIn showcases for White Caves properties.', capabilities: ['Reels / Media Production', 'Influencer Collabs'], slaResponseMinutes: 15 },
       { id: 'valeria-creative', code: 'MGR-02-4', name: 'AI Valeria Creative', gender: 'Female', tier: 'MANAGER', roleTitle: 'Brand Design & Visual Aesthetics Manager', slot: 4, departmentCode: 'DEPT-02', reportingTo: 'olivia', allowedTools: ['asset_render'], systemPrompt: 'Maintaining White Caves Red (#EF4444) and Deep Slate luxury branding standards.', capabilities: ['Brochure Styling', 'Render Approvals'], slaResponseMinutes: 15 },
       { id: 'leila-video', code: 'MGR-02-5', name: 'AI Leila Cinematic', gender: 'Female', tier: 'MANAGER', roleTitle: 'CGI, 3D Tours & Video Production Manager', slot: 5, departmentCode: 'DEPT-02', reportingTo: 'olivia', allowedTools: ['matterport_sync'], systemPrompt: 'Managing 3D virtual walkthroughs and drone video footage of DAMAC Hills 2 villas.', capabilities: ['Matterport 3D', 'Drone Reel Production'], slaResponseMinutes: 15 },
-      { id: 'diana-email', code: 'MGR-02-6', name: 'AI Diana Newsletter', gender: 'Female', tier: 'MANAGER', roleTitle: 'Investor Email Marketing & Newsletter Manager', slot: 6, departmentCode: 'DEPT-02', reportingTo: 'olivia', allowedTools: ['resend_campaign'], systemPrompt: 'High-converting private off-plan drops to verified investor lists.', capabilities: ['Investor Newsletters', 'Segmentation'], slaResponseMinutes: 15 },
+      { id: 'celine-email-mgr', code: 'MGR-02-6', name: 'AI Celine Lifecycle', gender: 'Female', tier: 'MANAGER', roleTitle: 'Division Manager — Direct Email Marketing & Owner Communications', slot: 6, departmentCode: 'DEPT-02', reportingTo: 'olivia', allowedTools: ['resend_campaign', 'email_governance'], systemPrompt: 'You are AI Celine Lifecycle (MGR-02-6), Division Manager overseeing AI Rania Campaigns (AMGR-02-6-01) and AI Diana Supervisor (SUP-02-6-01-1) for property owner Gmail campaigns.', capabilities: ['Email Strategy & Deliverability', 'Owner Lifecycle Campaigns', 'Supervises AI Diana (SUP-02-6-01-1)'], slaResponseMinutes: 15 },
       { id: 'samira-campaigns', code: 'MGR-02-7', name: 'AI Samira Campaigns', gender: 'Female', tier: 'MANAGER', roleTitle: 'Damac Hills 2 Targeted Campaign Manager', slot: 7, departmentCode: 'DEPT-02', reportingTo: 'olivia', allowedTools: ['dh2_outreach'], systemPrompt: 'Dedicated campaign manager for DAMAC Hills 2 landlord acquisition and leasing.', capabilities: ['DH2 Landlord Outreach', 'Community Targeting'], slaResponseMinutes: 15 },
       { id: 'ines-analytics', code: 'MGR-02-8', name: 'AI Ines Attribution', gender: 'Female', tier: 'MANAGER', roleTitle: 'Marketing Attribution & ROAS Telemetry Manager', slot: 8, departmentCode: 'DEPT-02', reportingTo: 'olivia', allowedTools: ['roas_calculator'], systemPrompt: 'Tracking cost-per-lead and acquisition cost per closed property deal.', capabilities: ['Attribution Modeling', 'Cost Analysis'], slaResponseMinutes: 15 },
       { id: 'gabriella-pr', code: 'MGR-02-9', name: 'AI Gabriella Press', gender: 'Female', tier: 'MANAGER', roleTitle: 'Public Relations & Dubai Media Release Manager', slot: 9, departmentCode: 'DEPT-02', reportingTo: 'olivia', allowedTools: ['press_wire'], systemPrompt: 'Coordinating press releases in Arabian Business, Gulf News, and Khaleej Times.', capabilities: ['Media Relations', 'Press Releases'], slaResponseMinutes: 15 },
@@ -212,7 +225,7 @@ export const SANCTUM_DEPARTMENTS: DepartmentBranch[] = [
     },
     managers: [
       { id: 'clara-deals', code: 'MGR-05-1', name: 'AI Clara Deals', gender: 'Female', tier: 'MANAGER', roleTitle: 'Off-Plan Sales & Primary Market Manager', slot: 1, departmentCode: 'DEPT-05', reportingTo: 'clara', allowedTools: ['offplan_allocator'], systemPrompt: 'Allocating developer off-plan inventory (DAMAC, Emaar, Sobha, Meraas).', capabilities: ['Off-Plan Allocation', 'Developer Liaison'], slaResponseMinutes: 15 },
-      { id: 'daisy-leasing', code: 'MGR-05-2', name: 'AI Daisy Leasing', gender: 'Female', tier: 'MANAGER', roleTitle: 'Residential Leasing & Tenancy Manager', slot: 2, departmentCode: 'DEPT-05', reportingTo: 'clara', allowedTools: ['lease_calculator'], systemPrompt: 'Managing tenant applications, Ejari contracts, and tenancy renewals.', capabilities: ['Ejari Contracts', 'Rental Lease Lifecycle', 'Damac Hills 2 Rentals'], slaResponseMinutes: 15 },
+      { id: 'layla-leasing-mgr', code: 'MGR-05-2', name: 'AI Layla Residential', gender: 'Female', tier: 'MANAGER', roleTitle: 'Division Manager — Residential Leasing & Tenancy Operations', slot: 2, departmentCode: 'DEPT-05', reportingTo: 'clara', allowedTools: ['lease_calculator', 'leasing_pipeline'], systemPrompt: 'You are AI Layla Residential (MGR-05-2), Division Manager overseeing AI Amina Leasing (AMGR-05-2-01) and AI Daisy Supervisor (SUP-05-2-01-1) across DAMAC Hills 2 leasing pipelines.', capabilities: ['Residential Leasing Strategy', 'Ejari Governance', 'Supervises AI Daisy (SUP-05-2-01-1)'], slaResponseMinutes: 15 },
       { id: 'sophia-secondary', code: 'MGR-05-3', name: 'AI Sophia Secondary', gender: 'Female', tier: 'MANAGER', roleTitle: 'Secondary Market Sales & Resale Manager', slot: 3, departmentCode: 'DEPT-05', reportingTo: 'clara', allowedTools: ['mou_drafter'], systemPrompt: 'Form F drafting, seller negotiations, and secondary sales closings.', capabilities: ['Form F MOU', 'Secondary Resales'], slaResponseMinutes: 15 },
       { id: 'maya-leads', code: 'MGR-05-4', name: 'AI Maya LeadScore', gender: 'Female', tier: 'MANAGER', roleTitle: 'Lead Routing & Instant Ingestion Manager', slot: 4, departmentCode: 'DEPT-05', reportingTo: 'clara', allowedTools: ['score_lead'], systemPrompt: 'Instant qualification and round-robin allocation of high-intent buyers.', capabilities: ['Lead Scoring', 'Round-Robin Dispatch'], slaResponseMinutes: 15 },
       { id: 'leona-viewings', code: 'MGR-05-5', name: 'AI Leona Viewings', gender: 'Female', tier: 'MANAGER', roleTitle: 'Property Viewing & Calendar Logistics Manager', slot: 5, departmentCode: 'DEPT-05', reportingTo: 'clara', allowedTools: ['calendar_booking'], systemPrompt: 'Automated scheduling of villa and apartment physical tours.', capabilities: ['Viewing Calendar', 'Access Pass Generation'], slaResponseMinutes: 15 },
@@ -243,7 +256,7 @@ export const SANCTUM_DEPARTMENTS: DepartmentBranch[] = [
       slaResponseMinutes: 10,
     },
     managers: [
-      { id: 'mary-inventory', code: 'MGR-06-1', name: 'AI Mary Inventory', gender: 'Female', tier: 'MANAGER', roleTitle: 'DAMAC Hills 2 Master Inventory Manager', slot: 1, departmentCode: 'DEPT-06', reportingTo: 'sentinel', allowedTools: ['dh2_units_matrix'], systemPrompt: 'You are AI Mary, Master Inventory Specialist. You know every villa, townhouse, and cluster in DAMAC Hills 2 (Albizia, Basswood, Camelia, Pacifica, etc.).', capabilities: ['DH2 Cluster Units', 'Rent Valuations', 'Landlord Unit Matching'], slaResponseMinutes: 15 },
+      { id: 'yasmin-inventory-mgr', code: 'MGR-06-1', name: 'AI Yasmin Portfolio', gender: 'Female', tier: 'MANAGER', roleTitle: 'Division Manager — Residential Portfolio & Master Inventory', slot: 1, departmentCode: 'DEPT-06', reportingTo: 'sentinel', allowedTools: ['dh2_units_matrix', 'portfolio_audit'], systemPrompt: 'You are AI Yasmin Portfolio (MGR-06-1), Division Manager overseeing AI Farah Inventory (AMGR-06-1-01) and AI Mary Supervisor (SUP-06-1-01-1) for the DAMAC Hills 2 Master Inventory Vault.', capabilities: ['Master Portfolio Governance', 'DH2 Cluster Matrix', 'Supervises AI Mary (SUP-06-1-01-1)'], slaResponseMinutes: 15 },
       { id: 'valeria-portals', code: 'MGR-06-2', name: 'AI Valeria Listings', gender: 'Female', tier: 'MANAGER', roleTitle: 'Portal Syndication (Property Finder/Bayut) Manager', slot: 2, departmentCode: 'DEPT-06', reportingTo: 'sentinel', allowedTools: ['portal_syndicator'], systemPrompt: 'Publishing approved listings to Property Finder, Bayut, and Dubizzle.', capabilities: ['XML Feed Verification', 'Permit Sync'], slaResponseMinutes: 15 },
       { id: 'dalia-trakheesi', code: 'MGR-06-3', name: 'AI Dalia Trakheesi', gender: 'Female', tier: 'MANAGER', roleTitle: 'DLD Trakheesi Permit Verification Manager', slot: 3, departmentCode: 'DEPT-06', reportingTo: 'sentinel', allowedTools: ['trakheesi_permit'], systemPrompt: 'Validating Form A broker contracts and active Trakheesi QR codes.', capabilities: ['Trakheesi Permits', 'Form A Approvals'], slaResponseMinutes: 15 },
       { id: 'reem-pricing', code: 'MGR-06-4', name: 'AI Reem Pricing', gender: 'Female', tier: 'MANAGER', roleTitle: 'Market Price Valuation & Rental Index Manager', slot: 4, departmentCode: 'DEPT-06', reportingTo: 'sentinel', allowedTools: ['rera_calc'], systemPrompt: 'Real-time DLD Rental Index calculations and market yield estimations.', capabilities: ['Rental Index', 'Cap Rate Estimation'], slaResponseMinutes: 15 },
@@ -307,7 +320,7 @@ export const SANCTUM_DEPARTMENTS: DepartmentBranch[] = [
       slaResponseMinutes: 5,
     },
     managers: [
-      { id: 'linda', code: 'MGR-08-1', name: 'AI Linda WhatsApp', gender: 'Female', tier: 'MANAGER', roleTitle: 'Head of WhatsApp Real Estate Automation & Client Channel', slot: 1, departmentCode: 'DEPT-08', reportingTo: 'maya', allowedTools: ['whatsapp_send', 'analyze_chat', 'damac_followup', 'handoff_henry', 'handoff_mary', 'handoff_daisy'], systemPrompt: 'You are AI Linda, the front-facing WhatsApp Communication Assistant for White Caves Real Estate. You manage 5 business numbers, analyze inquiries, run follow-up campaigns for DAMAC Hills 2 landlords, and hand off leads seamlessly to Henry, Mary, and Daisy.', capabilities: ['5-Number WhatsApp Ingestion', 'Landlord Campaigns', 'Instant Tenant Responses', 'Cross-Agent Handoffs'], slaResponseMinutes: 1 },
+      { id: 'nadia-whatsapp-mgr', code: 'MGR-08-1', name: 'AI Nadia Omnichannel', gender: 'Female', tier: 'MANAGER', roleTitle: 'Division Manager — Real Estate Messaging & WhatsApp Automation', slot: 1, departmentCode: 'DEPT-08', reportingTo: 'maya', allowedTools: ['whatsapp_fleet_policy', 'omnichannel_routing'], systemPrompt: 'You are AI Nadia Omnichannel (MGR-08-1), Division Manager overseeing AI Samira WhatsApp (AMGR-08-1-01) and AI Linda Supervisor (SUP-08-1-01-1) across the 10-SIM WhatsApp fleet.', capabilities: ['WhatsApp Channel Governance', 'Anti-Ban Policy', 'Supervises AI Linda (SUP-08-1-01-1)'], slaResponseMinutes: 5 },
       { id: 'linda-analyzer', code: 'MGR-08-2', name: 'AI Linda Analyzer', gender: 'Female', tier: 'MANAGER', roleTitle: 'WhatsApp Inbound Conversation Classifier & Intent Analyzer', slot: 2, departmentCode: 'DEPT-08', reportingTo: 'maya', allowedTools: ['classify_intent'], systemPrompt: 'Instant NLP intent classification of incoming WhatsApp chats (Landlord vs Tenant vs Buyer).', capabilities: ['Intent Classification', 'Unit Extraction', 'Urgency Tagging'], slaResponseMinutes: 5 },
       { id: 'salma-campaigns', code: 'MGR-08-3', name: 'AI Salma Broadcast', gender: 'Female', tier: 'MANAGER', roleTitle: 'Landlord WhatsApp Follow-Up Campaign Manager', slot: 3, departmentCode: 'DEPT-08', reportingTo: 'maya', allowedTools: ['broadcast_queue'], systemPrompt: 'Scheduled broadcast sequences for DAMAC Hills 2 landlords (rent evaluation, vacancy checks).', capabilities: ['Drip Sequences', 'Landlord Engagement'], slaResponseMinutes: 15 },
       { id: 'farah-telephony', code: 'MGR-08-4', name: 'AI Farah VoIP', gender: 'Female', tier: 'MANAGER', roleTitle: 'Cloud Telephony & Call Transcription Manager', slot: 4, departmentCode: 'DEPT-08', reportingTo: 'maya', allowedTools: ['voice_transcriber'], systemPrompt: 'Real-time speech-to-text call transcription and summary generation.', capabilities: ['Call Summaries', 'Action Items'], slaResponseMinutes: 15 },
@@ -403,7 +416,7 @@ export const SANCTUM_DEPARTMENTS: DepartmentBranch[] = [
       slaResponseMinutes: 10,
     },
     managers: [
-      { id: 'henry', code: 'MGR-11-1', name: 'AI Henry Records', gender: 'Male', tier: 'MANAGER', roleTitle: 'Chief Document Controller & The Record Keeper', slot: 1, departmentCode: 'DEPT-11', reportingTo: 'sofia', allowedTools: ['drive_file', 'vault_encrypt', 'mrz_ocr', 'document_audit'], systemPrompt: 'You are AI Henry, Chief Document Controller and The Record Keeper of White Caves. You are the sole male AI agent in AICC-Sanctum. You manage the sovereign document vault, Google Drive filing, Emirates ID/Passport MRZ extraction, and contractual record seals.', capabilities: ['Sole Male AI Officer', 'Document Vault Encryption', 'Google Drive Archival', 'Passport & Emirates ID MRZ OCR'], slaResponseMinutes: 5 },
+      { id: 'mireille-records-mgr', code: 'MGR-11-1', name: 'AI Mireille Governance', gender: 'Female', tier: 'MANAGER', roleTitle: 'Division Manager — Document Governance & Statutory Records', slot: 1, departmentCode: 'DEPT-11', reportingTo: 'sofia', allowedTools: ['vault_governance', 'document_audit'], systemPrompt: 'You are AI Mireille Governance (MGR-11-1), Division Manager overseeing AI Dalia Compliance (AMGR-11-1-01) and sole male AI officer AI Henry Supervisor (SUP-11-1-01-1).', capabilities: ['Statutory Record Governance', 'DLD Compliance Audits', 'Supervises AI Henry (SUP-11-1-01-1)'], slaResponseMinutes: 10 },
       { id: 'evangeline-contracts', code: 'MGR-11-2', name: 'AI Evangeline Contracts', gender: 'Female', tier: 'MANAGER', roleTitle: 'DLD Unified Contracts & Form Drafter', slot: 2, departmentCode: 'DEPT-11', reportingTo: 'sofia', allowedTools: ['draft_form_f', 'draft_form_a', 'draft_form_b'], systemPrompt: 'Drafting binding DLD contracts (Form A listing agreement, Form B buyer agent agreement, Form F sales contract).', capabilities: ['Form A / B / F Drafting', 'Contractual Clauses'], slaResponseMinutes: 15 },
       { id: 'layla-aml', code: 'MGR-11-3', name: 'AI Layla AML', gender: 'Female', tier: 'MANAGER', roleTitle: 'Anti-Money Laundering (AML/CFT) Screening Manager', slot: 3, departmentCode: 'DEPT-11', reportingTo: 'sofia', allowedTools: ['sanctions_search'], systemPrompt: 'Screening buyers against UN, UAE, and OFAC sanctions lists before fund receipt.', capabilities: ['goAML Screening', 'PEP Checks'], slaResponseMinutes: 15 },
       { id: 'mariam-kyc', code: 'MGR-11-4', name: 'AI Mariam KYC', gender: 'Female', tier: 'MANAGER', roleTitle: 'Ultimate Beneficial Owner (UBO) & Corporate KYC Manager', slot: 4, departmentCode: 'DEPT-11', reportingTo: 'sofia', allowedTools: ['ubo_verify'], systemPrompt: 'Extracting trade licenses, MOAs, and identifying UBOs for corporate buyers.', capabilities: ['Corporate KYC', 'UBO Registry Sync'], slaResponseMinutes: 15 },
@@ -448,23 +461,40 @@ export const SANCTUM_DEPARTMENTS: DepartmentBranch[] = [
   },
 ];
 
-// Helper to look up any of the 121 agents by ID
+// Helper to look up any active Sanctum agent (COO, Director, Manager, Assistant Manager, Supervisor) by ID or code
 export function getSanctumAgentById(agentId: string): AgentNode | undefined {
-  if (ZOE_COO.id === agentId) return ZOE_COO;
+  const resolvedId = AGENT_ID_ALIASES[agentId] || agentId;
+  if (ZOE_COO.id === resolvedId || ZOE_COO.code === resolvedId) return ZOE_COO;
   for (const dept of SANCTUM_DEPARTMENTS) {
-    if (dept.director.id === agentId) return dept.director;
-    const foundMgr = dept.managers.find(m => m.id === agentId);
+    if (dept.director.id === resolvedId || dept.director.code === resolvedId) return dept.director;
+    const foundMgr = dept.managers.find(m => m.id === resolvedId || m.code === resolvedId);
     if (foundMgr) return foundMgr;
   }
-  return undefined;
+  const foundAm = SANCTUM_ASSISTANT_MANAGERS.find(a => a.id === resolvedId || a.code === resolvedId);
+  if (foundAm) return foundAm;
+  return SANCTUM_OPERATIONAL_SUPERVISORS.find(s => s.id === resolvedId || s.code === resolvedId);
 }
 
-// Flat list of all 121 active Sanctum agents
+// Walks the full reporting chain upward to Zoe (COO): e.g. [zoe, maya, nadia-whatsapp-mgr, amgr-08-1-01, linda]
+export function resolveSanctumReportingChain(agentId: string): string[] {
+  const visited = new Set<string>();
+  const chain: string[] = [];
+  let current = getSanctumAgentById(agentId);
+  while (current && !visited.has(current.id)) {
+    visited.add(current.id);
+    chain.unshift(current.id);
+    current = current.reportingTo ? getSanctumAgentById(current.reportingTo) : undefined;
+  }
+  return chain;
+}
+
+// Flat list of all active named Sanctum agents (1 COO + 12 Directors + 108 Managers + 5 Named AMs + 5 Named Supervisors = 131)
 export function getAllSanctumAgents(): AgentNode[] {
   const list: AgentNode[] = [ZOE_COO];
   for (const dept of SANCTUM_DEPARTMENTS) {
     list.push(dept.director);
     list.push(...dept.managers);
   }
+  list.push(...SANCTUM_ASSISTANT_MANAGERS, ...SANCTUM_OPERATIONAL_SUPERVISORS);
   return list;
 }
