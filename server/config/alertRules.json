@@ -119,7 +119,7 @@
       }
     }
   ],
-  
+
   "escalationPolicies": [
     {
       "id": "default",
@@ -139,7 +139,7 @@
       ]
     }
   ],
-  
+
   "quietHours": {
     "enabled": false,
     "start": "22:00",
@@ -147,7 +147,7 @@
     "timezone": "UTC",
     "severityOverride": "CRITICAL"
   },
-  
+
   "doNotDisturb": {
     "enabled": false,
     "users": [],
