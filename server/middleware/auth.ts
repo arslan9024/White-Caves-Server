@@ -160,6 +160,7 @@ const authMiddleware = (req: AuthRequest, _res: Response, next: NextFunction) =>
 
 export const authenticateToken = authMiddleware;
 export const verifyToken = authMiddleware;
+export const requireAuth = authMiddleware;
 export { requireRole } from './rbac.js';
 
 export default authMiddleware;
