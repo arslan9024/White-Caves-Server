@@ -82,13 +82,21 @@ const { mockDispatchLindaCampaign, mockDispatchDueLindaCampaigns } = vi.hoisted(
 });
 
 vi.mock('../database.js', () => ({ prisma: mockPrisma }));
-vi.mock('../config/env.js', () => ({ LINDA_ENABLED: true }));
+vi.mock('../config/env.js', async importOriginal => {
+  const actual = await importOriginal<Record<string, unknown>>();
+  return { ...actual, LINDA_ENABLED: true };
+});
 vi.mock('../middleware/rbac.js', () => ({
   requireRole: () => (_req: Request, _res: Response, next: NextFunction) => next(),
   requirePermission: () => (_req: Request, _res: Response, next: NextFunction) => next(),
 }));
 vi.mock('../services/socketServer.js', () => ({
-  getSocketServer: () => ({ emitLindaMessage: vi.fn() }),
+  getSocketServer: () => ({
+    emitLindaMessage: vi.fn(),
+    emitLindaCampaignTelemetry: vi.fn(),
+    emitLindaHotLead: vi.fn(),
+    emitLindaConnectionState: vi.fn(),
+  }),
 }));
 vi.mock('../services/whatsapp/whatsappUtils.js', () => ({
   rateLimiter: {
@@ -272,5 +280,38 @@ describe('Linda routes — campaign foundation', () => {
     expect(res.status).toBe(404);
     expect(res.body.success).toBe(false);
     expect(res.body.error).toMatch(/Campaign not found/i);
+  });
+
+  it('serves DH2 warm contacts, sequence templates, audit endpoint, delivery logs & E2E test dispatch', async () => {
+    const app = createApp();
+
+    const seqRes = await request(app).get('/api/linda/campaigns/sequences');
+    expect(seqRes.status).toBe(200);
+    expect(seqRes.body.data.sequences).toHaveProperty('LANDLORD_RETENTION_RENEWAL');
+    expect(seqRes.body.data.sequences).toHaveProperty('TENANT_FOLLOWUP');
+
+    const warmRes = await request(app).get('/api/linda/warm-contacts?limit=20');
+    expect(warmRes.status).toBe(200);
+    expect(warmRes.body.success).toBe(true);
+    expect(warmRes.body.data).toHaveProperty('contacts');
+
+    const auditRes = await request(app)
+      .post('/api/linda/campaigns/audit-message')
+      .send({
+        message: 'Hello Ahmed, regarding Unit 343 in Pacifica — book with Arslan Malik at https://whitecaves.ae',
+      });
+    expect(auditRes.status).toBe(200);
+    expect(auditRes.body.data.passed).toBe(true);
+    expect(auditRes.body.data.sanitizedMessage).not.toContain('Unit 343');
+
+    const testRes = await request(app)
+      .post('/api/linda/test-dispatch')
+      .send({ sequenceKey: 'TENANT_FOLLOWUP', cluster: 'Camelia' });
+    expect(testRes.status).toBe(200);
+    expect(testRes.body.data.verified).toBe(true);
+
+    const logsRes = await request(app).get('/api/linda/campaigns/delivery-logs');
+    expect(logsRes.status).toBe(200);
+    expect(logsRes.body.data.total).toBeGreaterThanOrEqual(1);
   });
 });

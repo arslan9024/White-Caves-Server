@@ -5,6 +5,8 @@ import {
   emitLindaParitySnapshot,
 } from '../../services/whatsapp/linda-core/bridge/shadowParityReporter.js';
 import { checkPhoneSavedInGoraha } from '../../services/whatsapp/gorahaContactCheckService.js';
+import { lindaMultiSimPool } from '../../services/whatsapp/LindaMultiSimPoolService.js';
+import { processLandlordAvailabilityReply } from '../../services/whatsapp/dh2LandlordReplyVaultSync.js';
 import { applyTemplate, getOrInitLindaRuntime } from './lindaCommon.js';
 import { createLogger } from '../../utils/logger.js';
 
@@ -12,7 +14,7 @@ const log = createLogger('lindaMessageController');
 
 export const sendMessage = async (req: Request, res: Response) => {
   try {
-    const { phoneNumber, message } = req.body;
+    const { phoneNumber, message, accountPhone } = req.body;
     const { conversationId } = req.params as Record<string, string>;
 
     if (!phoneNumber || !message) {
@@ -26,12 +28,35 @@ export const sendMessage = async (req: Request, res: Response) => {
       return res.status(400).json({ success: false, error: 'Invalid phone number format' });
     }
 
-    const { linda, mode, messageBridge } = await getOrInitLindaRuntime();
-    const messageId = await messageBridge.send({ phoneNumber: cleanPhone, message });
+    let messageId: string;
+    let resolvedAccount = 'linda-broadcast';
+    const poolAccount = accountPhone ? lindaMultiSimPool.findAccount(String(accountPhone)) : undefined;
 
-    if (mode === 'shadow') {
-      emitLindaParitySnapshot(buildLindaParitySnapshot('route_send', linda, mode));
+    if (poolAccount) {
+      const poolEngine = lindaMultiSimPool.getEngineForAccount(poolAccount);
+      resolvedAccount = poolAccount.phoneNumber;
+      if (poolEngine.isConnected()) {
+        messageId = await poolEngine.sendMessage(cleanPhone, message);
+      } else {
+        const { messageBridge } = await getOrInitLindaRuntime();
+        messageId = await messageBridge.send({ phoneNumber: cleanPhone, message });
+      }
+    } else {
+      const { linda, mode, messageBridge } = await getOrInitLindaRuntime();
+      messageId = await messageBridge.send({ phoneNumber: cleanPhone, message });
+      if (mode === 'shadow') {
+        emitLindaParitySnapshot(buildLindaParitySnapshot('route_send', linda, mode));
+      }
     }
+
+    getSocketServer()?.emitLindaMessage({
+      id: messageId,
+      from: cleanPhone,
+      body: message,
+      timestamp: new Date(),
+      hasMedia: false,
+      type: 'chat',
+    });
 
     res.json({
       success: true,
@@ -39,6 +64,7 @@ export const sendMessage = async (req: Request, res: Response) => {
         conversationId,
         messageId,
         phoneNumber: cleanPhone,
+        accountPhone: resolvedAccount,
         message: message.substring(0, 100) + (message.length > 100 ? '...' : ''),
         timestamp: new Date(),
         channel: 'LINDA_WHATSAPP',
@@ -126,8 +152,60 @@ export const broadcastMessages = async (req: Request, res: Response) => {
   }
 };
 
-export const webhookIngestion = async (_req: Request, res: Response) => {
+export const webhookIngestion = async (req: Request, res: Response) => {
   try {
+    const body = (req.body || {}) as {
+      from?: string;
+      body?: string;
+      message?: string;
+      accountPhone?: string;
+      contactName?: string;
+    };
+
+    // Direct inbound webhook triage mode when payload includes sender + message text
+    const inboundText = body.body || body.message;
+    if (body.from && inboundText) {
+      const cleanFrom = String(body.from).replace(/\D/g, '');
+      const linePhone = body.accountPhone || '+971503869886';
+      const payload = {
+        id: `wh_${Date.now()}`,
+        from: cleanFrom,
+        body: inboundText,
+        timestamp: new Date(),
+        hasMedia: false,
+        type: 'chat',
+      };
+      getSocketServer()?.emitLindaMessage(payload);
+
+      const landlordTriage = await processLandlordAvailabilityReply({
+        hunterSimPhone: linePhone,
+        landlordPhone: cleanFrom,
+        landlordName: body.contactName,
+        message: inboundText,
+      });
+
+      const tenantTriage =
+        !landlordTriage.syncedToMaryVault && !landlordTriage.suppressedDnc
+          ? await lindaMultiSimPool.routeInboundTenantToViewing({
+              fromPhone: cleanFrom,
+              message: inboundText,
+              tenantName: body.contactName,
+              receivedOnLine: linePhone,
+            })
+          : null;
+
+      return res.json({
+        success: true,
+        data: {
+          mode: 'inbound_webhook_triage',
+          conversationId: `LINDA_${cleanFrom}`,
+          channel: 'LINDA_WHATSAPP',
+          landlordTriage,
+          tenantTriage,
+        },
+      });
+    }
+
     const { linda, mode, messageBridge } = await getOrInitLindaRuntime();
     const messages = messageBridge.getQueue();
 
@@ -156,8 +234,24 @@ export const webhookIngestion = async (_req: Request, res: Response) => {
   }
 };
 
-export const getConversations = async (_req: Request, res: Response) => {
+export const getConversations = async (req: Request, res: Response) => {
   try {
+    const accountPhone = typeof req.query.accountPhone === 'string' ? req.query.accountPhone : '';
+    const poolAccount = accountPhone ? lindaMultiSimPool.findAccount(accountPhone) : undefined;
+    if (poolAccount) {
+      const engine = lindaMultiSimPool.getEngineForAccount(poolAccount);
+      const conversations = engine.isConnected() ? await engine.getConversations() : [];
+      return res.json({
+        success: true,
+        data: {
+          conversations,
+          count: conversations.length,
+          accountPhone: poolAccount.phoneNumber,
+          source: 'multi-sim-pool',
+        },
+      });
+    }
+
     const { messageBridge } = await getOrInitLindaRuntime();
     const conversations = await messageBridge.getConversations();
     res.json({ success: true, data: { conversations, count: conversations.length, source: 'in-process' } });
@@ -172,6 +266,23 @@ export const getConversationHistory = async (req: Request, res: Response) => {
   try {
     const { phoneNumber } = req.params as Record<string, string>;
     const limit = req.query.limit ? parseInt(req.query.limit as string) : 50;
+    const accountPhone = typeof req.query.accountPhone === 'string' ? req.query.accountPhone : '';
+    const poolAccount = accountPhone ? lindaMultiSimPool.findAccount(accountPhone) : undefined;
+
+    if (poolAccount) {
+      const engine = lindaMultiSimPool.getEngineForAccount(poolAccount);
+      const history = engine.isConnected() ? await engine.getConversationHistory(phoneNumber, limit) : [];
+      return res.json({
+        success: true,
+        data: {
+          phoneNumber,
+          accountPhone: poolAccount.phoneNumber,
+          messages: history,
+          count: history.length,
+          source: 'multi-sim-pool',
+        },
+      });
+    }
 
     const { messageBridge } = await getOrInitLindaRuntime();
     const history = await messageBridge.getConversationHistory(phoneNumber, limit);

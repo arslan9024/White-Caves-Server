@@ -32,9 +32,9 @@ export const DH2_CLUSTERS = [
 ];
 
 export const DH2_LANDLORD_TEMPLATES = [
-  'Hello {{ownerName}}, this is Linda from White Caves Real Estate LLC (DAMAC Hills 2 Leasing Desk). We have pre-qualified tenants looking for {{bedrooms}}BR units in {{cluster}}, DAMAC Hills 2. Is your unit {{unitRef}} available for rent soon?',
-  'Hi {{ownerName}}, White Caves Real Estate LLC here. Demand for {{cluster}} in DAMAC Hills 2 is very strong this week — are you considering leasing unit {{unitRef}}? We handle verified viewings and Ejari directly.',
-  'Greetings {{ownerName}}! Linda from White Caves Real Estate (DAMAC Hills 2 Specialists). We currently have active corporate tenants searching in {{cluster}}. Would you like us to list {{unitRef}} on whitecaves.com at zero landlord commission?',
+  'Hello {{ownerName}}, this is Linda from White Caves Real Estate LLC (DAMAC Hills 2 Leasing Desk). We have pre-qualified tenants looking for {{bedrooms}}BR homes in {{cluster}}, DAMAC Hills 2. Is your property available for rent soon? Schedule directly with Arslan Malik via https://whitecaves.ae or reply STOP to opt out.',
+  'Hi {{ownerName}}, White Caves Real Estate LLC here. Demand for {{cluster}} in DAMAC Hills 2 is very strong this week — are you considering leasing your {{bedrooms}}BR residence? We handle verified viewings with Arslan Malik and Ejari directly at https://whitecaves.ae. Reply STOP to opt out.',
+  'Greetings {{ownerName}}! Linda from White Caves Real Estate (DAMAC Hills 2 Specialists). We currently have active corporate tenants searching in {{cluster}}. Would you like Arslan Malik to feature your residence on https://whitecaves.ae at zero landlord commission? Reply STOP to opt out.',
 ];
 
 export const DH2_ALL_CLUSTERS = [

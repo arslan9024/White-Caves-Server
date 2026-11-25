@@ -105,6 +105,28 @@ export function clearMemoryDncCacheForTests(): void {
   memoryDncCache.clear();
 }
 
+export async function removePhoneOptOut(
+  phone: string,
+  dbOverride?: any
+): Promise<{ phone: string; unblocked: boolean }> {
+  const clean = normalizeCanonicalPhone(phone);
+  if (!clean) return { phone: '', unblocked: false };
+  memoryDncCache.delete(clean);
+  const db = dbOverride || defaultDb;
+  try {
+    if (db.whatsAppConsent?.upsert) {
+      await db.whatsAppConsent.upsert({
+        where: { phone: clean },
+        update: { consent: true, optedOutAt: null },
+        create: { phone: clean, consent: true, optedOutAt: null },
+      });
+    }
+  } catch (err) {
+    log.warn('DNC unblock Prisma persistence skipped:', err instanceof Error ? err.message : err);
+  }
+  return { phone: clean, unblocked: true };
+}
+
 export interface SimWarmupPolicy {
   ageDays: number;
   hourlyCap: 5 | 10 | 18;
@@ -135,9 +157,9 @@ export const HUNTER_3_TOUCH_CADENCE_DAYS = [0, 4, 14] as const;
 
 export const HUNTER_FOLLOWUP_TEMPLATES: Record<'TOUCH_2_DAY4' | 'TOUCH_3_DAY14', string> = {
   TOUCH_2_DAY4:
-    'Hi {{ownerName}}, quick follow-up from Linda at White Caves Real Estate LLC regarding your {{bedrooms}}BR in {{cluster}}, DAMAC Hills 2 (unit {{unitRef}}). We still have verified tenants ready for viewings this week — is it becoming available soon?',
+    'Hi {{ownerName}}, quick follow-up from Linda at White Caves Real Estate LLC regarding your {{bedrooms}}BR residence in {{cluster}}, DAMAC Hills 2. We still have verified tenants ready for viewings with Arslan Malik this week — visit https://whitecaves.ae or reply if it is becoming available soon.',
   TOUCH_3_DAY14:
-    'Hello {{ownerName}}, final polite check-in from White Caves Real Estate (DAMAC Hills 2 Leasing Desk) for unit {{unitRef}} in {{cluster}}. Whenever you decide to lease or renew, feel free to reply here anytime — or reply STOP if you prefer no further messages.',
+    'Hello {{ownerName}}, final polite check-in from White Caves Real Estate (DAMAC Hills 2 Leasing Desk) for your {{cluster}} property. Whenever you decide to lease or renew with Arslan Malik, visit https://whitecaves.ae or reply here anytime — or reply STOP if you prefer no further messages.',
 };
 
 export async function scheduleHunter3TouchCadence(input: {

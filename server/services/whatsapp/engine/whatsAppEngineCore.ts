@@ -5,7 +5,7 @@ import {
   LINDA_HEADLESS,
   LINDA_RECONNECT_DELAY,
   LINDA_MAX_RECONNECT_ATTEMPTS,
-} from '../../config/env.js';
+} from '../../../config/env.js';
 import {
   type WhatsAppMessage,
   type WhatsAppEngineConfig,
@@ -156,6 +156,7 @@ export class WhatsAppEngine extends EventEmitter implements WhatsAppEngineCore {
       this.messageQueue.push(wrapped);
       this.messagesReceived += 1;
       this.emit('message', wrapped);
+      getSocketServer()?.emitLindaMessage(wrapped);
       console.log(`[WhatsAppEngine:${this.config.clientId}] ← from ${wrapped.from}: ${wrapped.body.substring(0, 60)}`);
     } catch (error) {
       console.error(`[WhatsAppEngine:${this.config.clientId}] Error handling incoming message:`, error);

@@ -45,6 +45,14 @@ import {
   getMdFollowUpQueue,
   patchMdFollowUpQueueItem,
   getDueCadenceTouchesHandler,
+  getWarmDh2Contacts,
+  getWarmSequenceTemplates,
+  launchWarmDh2Sequence,
+  getCampaignDeliveryLogs,
+  runLindaTestDispatch,
+  auditOutboundMessageHandler,
+  removeDncSuppression,
+  requestPairCodeByBody,
   henryTrigger,
   inventoryBroadcast,
   nlpRoute,
@@ -115,6 +123,14 @@ router.post('/inbound/landlord-reply', requireRole('owner', 'admin'), ingestLand
 router.post('/inbound/route-viewing', requirePermission('view_whatsapp_conversations'), routeInboundTenantViewing);
 router.get('/dnc', requireRole('owner', 'admin'), getDncSuppressionList);
 router.post('/dnc/suppress', requireRole('owner', 'admin'), addDncSuppression);
+router.delete('/dnc/:phone', requireRole('owner', 'admin'), removeDncSuppression);
+router.post('/pair-code', requireRole('owner', 'admin'), requestPairCodeByBody);
+router.get('/warm-contacts', requirePermission('view_whatsapp_conversations'), getWarmDh2Contacts);
+router.get('/campaigns/sequences', requirePermission('view_whatsapp_conversations'), getWarmSequenceTemplates);
+router.post('/campaigns/warm-sequence-launch', requireRole('owner', 'admin'), launchWarmDh2Sequence);
+router.get('/campaigns/delivery-logs', requirePermission('view_whatsapp_conversations'), getCampaignDeliveryLogs);
+router.post('/campaigns/audit-message', requirePermission('view_whatsapp_conversations'), auditOutboundMessageHandler);
+router.post('/test-dispatch', requireRole('owner', 'admin'), runLindaTestDispatch);
 router.get('/md-followup-queue', requireRole('owner', 'admin'), getMdFollowUpQueue);
 router.patch('/md-followup-queue/:id', requireRole('owner', 'admin'), patchMdFollowUpQueueItem);
 router.get('/cadence/due', requireRole('owner', 'admin'), getDueCadenceTouchesHandler);
