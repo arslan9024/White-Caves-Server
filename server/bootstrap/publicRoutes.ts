@@ -153,7 +153,7 @@ export function mountPublicRoutes(app: Express): void {
   // Public Rental Storefront & Lead Inquiry API (public — strictly sanitized DTOs)
   app.use('/api/public', publicLeasingRoutes);
 
-  // AI Diana (MGR-02-6) Property Owner Email Campaign Engine
+  // AI Diana Supervisor (SUP-02-6-01-1 under MGR-02-6 AI Celine) Property Owner Email Campaign Engine
   app.use('/api/diana/campaigns', dianaEmailRoutes);
 
   // GraphQL compatibility endpoints

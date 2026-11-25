@@ -243,7 +243,7 @@ router.patch('/managers/:id', (req: Request, res: Response) => {
       return res.status(400).json({ error: "Aegis engineering names cannot be assigned to Zoe's Team." });
     }
     if (body.gender === 'Male' && mgr.id !== 'henry') {
-      return res.status(400).json({ error: 'Only Henry (MGR-11-1) may have Male persona in AICC-Sanctum.' });
+      return res.status(400).json({ error: 'Only AI Henry Supervisor (SUP-11-1-01-1) may have Male persona in AICC-Sanctum.' });
     }
     if (body.name) mgr.name = body.name.trim();
     if (body.roleTitle) mgr.roleTitle = body.roleTitle.trim();

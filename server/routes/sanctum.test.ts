@@ -75,4 +75,46 @@ describe('AICC-Sanctum Hierarchy Governance, CRUD & Manager Swapping', () => {
     expect(deleted.status).toBe(200);
     expect(deleted.body.movedToStandby).toBe(true);
   });
+
+  it('exposes complete Zoe -> Director -> Manager -> Assistant Manager -> Supervisor chains for all 5 operational AI assistants', async () => {
+    const app = createApp();
+    const res = await request(app).get('/api/sanctum/supervisors');
+    expect(res.status).toBe(200);
+    expect(res.body.totalOperationalSupervisors).toBe(5);
+
+    const byKey = Object.fromEntries(
+      res.body.supervisors.map((s: { key: string }) => [s.key, s])
+    );
+
+    expect(byKey.diana.supervisor.code).toBe('SUP-02-6-01-1');
+    expect(byKey.diana.fullChainCodes).toEqual(['MD-01', 'WC-COO-01', 'DIR-02', 'MGR-02-6', 'AMGR-02-6-01', 'SUP-02-6-01-1']);
+
+    expect(byKey.daisy.supervisor.code).toBe('SUP-05-2-01-1');
+    expect(byKey.daisy.fullChainCodes).toEqual(['MD-01', 'WC-COO-01', 'DIR-05', 'MGR-05-2', 'AMGR-05-2-01', 'SUP-05-2-01-1']);
+
+    expect(byKey.mary.supervisor.code).toBe('SUP-06-1-01-1');
+    expect(byKey.mary.fullChainCodes).toEqual(['MD-01', 'WC-COO-01', 'DIR-06', 'MGR-06-1', 'AMGR-06-1-01', 'SUP-06-1-01-1']);
+
+    expect(byKey.linda.supervisor.code).toBe('SUP-08-1-01-1');
+    expect(byKey.linda.fullChainCodes).toEqual(['MD-01', 'WC-COO-01', 'DIR-08', 'MGR-08-1', 'AMGR-08-1-01', 'SUP-08-1-01-1']);
+
+    expect(byKey.henry.supervisor.code).toBe('SUP-11-1-01-1');
+    expect(byKey.henry.supervisor.gender).toBe('Male');
+    expect(byKey.henry.fullChainCodes).toEqual(['MD-01', 'WC-COO-01', 'DIR-11', 'MGR-11-1', 'AMGR-11-1-01', 'SUP-11-1-01-1']);
+
+    // Verify full 5-hop delegation chain from Zoe to Linda Supervisor
+    const delegateRes = await request(app).post('/api/sanctum/delegate').send({
+      targetAgentId: 'linda',
+      taskType: 'dh2_outreach_check',
+      payload: { cluster: 'Pacifica' },
+    });
+    expect(delegateRes.status).toBe(200);
+    expect(delegateRes.body.delegationChain).toEqual([
+      'zoe',
+      'maya',
+      'nadia-whatsapp-mgr',
+      'amgr-08-1-01',
+      'linda',
+    ]);
+  });
 });

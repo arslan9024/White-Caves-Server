@@ -78,11 +78,15 @@ function loadGorahaServiceAccountKey(): RawKey {
   throw new Error(`GorahaBot service account key not found in ${CENTRAL_SECRETS_DIR}`);
 }
 
-export function createAkoyaSheetsClient(): sheets_v4.Sheets {
+export function createAkoyaSheetsClient(readOnly = false): sheets_v4.Sheets {
   const credentials = loadGorahaServiceAccountKey();
   const auth = new google.auth.GoogleAuth({
     credentials,
-    scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
+    scopes: [
+      readOnly
+        ? 'https://www.googleapis.com/auth/spreadsheets.readonly'
+        : 'https://www.googleapis.com/auth/spreadsheets',
+    ],
   });
   return google.sheets({ version: 'v4', auth });
 }

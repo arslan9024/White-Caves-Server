@@ -36,6 +36,10 @@ import {
   OPEN_HUMAN_LEASING_POSITIONS,
   TMS_LEASING_TASK_COLLECTIONS,
 } from '../services/leasing/daisyHierarchyAndTmsFormula.js';
+import {
+  DMS_ZOE_MISSION_OPEN_POSITIONS,
+  SOVEREIGN_SUPERVISOR_CHAINS,
+} from '../services/leasing/supervisorAuthorityChainSync.js';
 
 const router = Router();
 const db = prisma as any;
@@ -52,6 +56,7 @@ router.get('/blueprint', (_req, res) => {
       daisyHierarchySummary: buildDaisyLeasingHierarchy().counts,
       openHumanPositionsCount: OPEN_HUMAN_LEASING_POSITIONS.length,
       tmsLeasingTaskCollectionsCount: TMS_LEASING_TASK_COLLECTIONS.length,
+      supervisorAuthorityChains: SOVEREIGN_SUPERVISOR_CHAINS,
     },
   });
 });
@@ -72,6 +77,7 @@ router.get('/dms/open-positions', (_req, res) => {
       director: 'AI Clara (DIR-05)',
       manager: 'AI Daisy Leasing (MGR-05-2)',
       openPositions: OPEN_HUMAN_LEASING_POSITIONS,
+      zoeMissionPositions: DMS_ZOE_MISSION_OPEN_POSITIONS,
     },
   });
 });
@@ -83,6 +89,20 @@ router.get('/tms/leasing-tasks', (_req, res) => {
       domain: 'RESIDENTIAL_LEASING_OPERATIONS',
       departmentId: 'DEPT-05',
       collections: TMS_LEASING_TASK_COLLECTIONS,
+      supervisorAuthorityChains: SOVEREIGN_SUPERVISOR_CHAINS,
+    },
+  });
+});
+
+router.get('/tms/supervisor-chains', (_req, res) => {
+  res.json({
+    success: true,
+    data: {
+      law: 'TURING-SUPERVISOR-CHAIN-019',
+      executiveSponsor: 'MD-01 (Arslan Malik)',
+      executivePartner: 'AI Zoe (COO)',
+      chains: SOVEREIGN_SUPERVISOR_CHAINS,
+      dmsPositions: DMS_ZOE_MISSION_OPEN_POSITIONS,
     },
   });
 });

@@ -1,5 +1,5 @@
 /**
- * dianaEmailRoutes.ts — Express Routes for AI Diana (MGR-02-6) Email Campaign Engine
+ * dianaEmailRoutes.ts — Express Routes for AI Diana Supervisor (SUP-02-6-01-1 under MGR-02-6 AI Celine) Email Campaign Engine
  * Endpoints: GET /status, POST /preview, POST /send
  * Standard: AEGIS Single Purpose File Law (< 350 lines, AEG-042)
  */
