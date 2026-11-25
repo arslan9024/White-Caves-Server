@@ -9,6 +9,7 @@ import contactRoutes from '../routes/contact.js';
 import aiChatRoutes from '../routes/aiChat.js';
 import sitemapRoutes from '../routes/sitemap.js';
 import publicLeasingRoutes from '../routes/publicLeasing.js';
+import dianaEmailRoutes from '../../src/routes/dianaEmailRoutes.js';
 import { cacheService } from '../services/CacheService.js';
 import { isAuthenticationRequired } from '../config/authenticationPolicy.js';
 
@@ -151,6 +152,9 @@ export function mountPublicRoutes(app: Express): void {
 
   // Public Rental Storefront & Lead Inquiry API (public — strictly sanitized DTOs)
   app.use('/api/public', publicLeasingRoutes);
+
+  // AI Diana (MGR-02-6) Property Owner Email Campaign Engine
+  app.use('/api/diana/campaigns', dianaEmailRoutes);
 
   // GraphQL compatibility endpoints
   app.use('/graphql', graphqlRoutes);
