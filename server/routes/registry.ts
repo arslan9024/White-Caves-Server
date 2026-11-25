@@ -88,6 +88,7 @@ import commissionsRoutes from './commissions.js';
 import notificationsRoutes from './notifications.js';
 import importHistoryRoutes from './importHistory.routes.js';
 import smartImportRoutes from './smartImport.routes.js';
+import saritaSheetsRoutes from './saritaSheets.routes.js';
 import mediaRoutes from './media.js';
 import whatsappRouter from './broadcast.js';
 import whatsappEngineRoutes from './whatsapp.js';
@@ -264,6 +265,7 @@ export function mountDomainRoutes(app: Express): void {
   app.use('/api/commissions', commissionsRoutes);
 
   app.use('/api/inventory/import', smartImportRoutes);
+  app.use('/api/inventory/sheets', saritaSheetsRoutes);
   app.use('/api', importHistoryRoutes);
 
   // Reporting API (Zoe - Executive Dashboard)
