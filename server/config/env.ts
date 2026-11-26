@@ -69,6 +69,25 @@ export const JWT_SECRET = _jwtSecret || 'white-caves-dev-only-secret-DO-NOT-USE-
 export const JWT_EXPIRES_SECONDS = 7 * 24 * 60 * 60; // 7 days
 export const BCRYPT_ROUNDS = 12;
 
+const requireSecret = (name: string): string => {
+  const val = process.env[name];
+  if (!val && !isTestRuntime) {
+    if (NODE_ENV === 'development') {
+      console.warn(`⚠️  ${name} not set — using dev-only fallback. Never deploy without it.`);
+      return `white-caves-dev-only-${name.toLowerCase()}-DO-NOT-USE-IN-PRODUCTION`;
+    }
+    throw new Error(`CRITICAL: ${name} environment variable must be set`);
+  }
+  return val || '';
+};
+
+export const CRON_SECRET = requireSecret('CRON_SECRET');
+export const PII_ENCRYPTION_KEY = requireSecret('PII_ENCRYPTION_KEY');
+export const AUDIT_SIGNING_SECRET = requireSecret('AUDIT_SIGNING_SECRET');
+export const AUDIO_WATERMARK_SECRET = requireSecret('AUDIO_WATERMARK_SECRET');
+export const ENCRYPTION_KEY = requireSecret('ENCRYPTION_KEY');
+export const ENCRYPTION_SALT = requireSecret('ENCRYPTION_SALT');
+
 // ─── Database ────────────────────────────────────────────────────────────
 const _databaseUrl = process.env.DATABASE_URL;
 const _legacyMongoUri = process.env.MONGODB_URI;

@@ -10,7 +10,10 @@ import crypto from 'node:crypto';
 
 export class AudioWatermarkVerifier {
   constructor(secretKey) {
-    this.secret = secretKey || process.env.AUDIO_WATERMARK_SECRET || 'linda_audio_watermark_secret_key_32c';
+    this.secret = secretKey || process.env.AUDIO_WATERMARK_SECRET;
+    if (!this.secret) {
+      throw new Error('CRITICAL: AUDIO_WATERMARK_SECRET must be set');
+    }
   }
 
   /**

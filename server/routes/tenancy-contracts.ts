@@ -256,7 +256,8 @@ router.post('/cron/ejari-expiry', async (req, res) => {
   try {
     // In production, this should be protected by an internal secret or API gateway
     const authHeader = req.headers.authorization;
-    if (authHeader !== `Bearer ${process.env.CRON_SECRET || 'dev_cron_secret'}`) {
+    const { CRON_SECRET } = await import('../config/env.js');
+    if (!CRON_SECRET || authHeader !== `Bearer ${CRON_SECRET}`) {
       return res.status(401).json({ success: false, error: 'Unauthorized cron trigger' });
     }
 

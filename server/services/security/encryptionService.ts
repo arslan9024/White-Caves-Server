@@ -10,15 +10,14 @@ const ITERATIONS = 100000;
 
 const getEncryptionKey = () => {
   const key = process.env.ENCRYPTION_KEY;
-  if (!key) {
-    console.warn('[EncryptionService] ENCRYPTION_KEY not set, using derived key from secrets');
-    const fallback = process.env.DB_PASSWORD || process.env.JWT_SECRET || 'default-dev-key';
-    return crypto.pbkdf2Sync(fallback, 'whitecaves-salt', ITERATIONS, KEY_LENGTH, 'sha256');
+  const salt = process.env.ENCRYPTION_SALT;
+  if (!key || !salt) {
+    throw new Error('CRITICAL: ENCRYPTION_KEY and ENCRYPTION_SALT must be set');
   }
   if (key.length === 64) {
     return Buffer.from(key, 'hex');
   }
-  return crypto.pbkdf2Sync(key, 'whitecaves-salt', ITERATIONS, KEY_LENGTH, 'sha256');
+  return crypto.pbkdf2Sync(key, salt, ITERATIONS, KEY_LENGTH, 'sha256');
 };
 
 export const encrypt = (plaintext) => {

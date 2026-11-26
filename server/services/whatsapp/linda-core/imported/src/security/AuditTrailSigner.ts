@@ -10,7 +10,10 @@ import crypto from 'node:crypto';
 
 export class AuditTrailSigner {
   constructor(signingSecret) {
-    this.secret = signingSecret || process.env.AUDIT_SIGNING_SECRET || 'linda_immutable_audit_secret_key';
+    this.secret = signingSecret || process.env.AUDIT_SIGNING_SECRET;
+    if (!this.secret) {
+      throw new Error('CRITICAL: AUDIT_SIGNING_SECRET must be set');
+    }
     this.lastHash = 'GENESIS_BLOCK_HASH_0000000000000000';
     this.chain = [];
   }

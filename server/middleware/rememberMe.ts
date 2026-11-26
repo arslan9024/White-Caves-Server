@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { verify } from 'jsonwebtoken';
 import { prisma } from '../database.js';
 import logger from '../utils/logger.js';
+import { JWT_SECRET } from '../config/env.js';
 
 interface TokenPayload {
   id: string;
@@ -12,7 +13,6 @@ interface TokenPayload {
   exp: number;
 }
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 const REMEMBER_ME_EXPIRY = 30 * 24 * 60 * 60 * 1000; // 30 days
 
 /**

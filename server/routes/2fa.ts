@@ -7,10 +7,10 @@ import { prisma } from '../database.js';
 import { asyncHandler, AppError } from '../middleware/errorHandler.js';
 import authMiddleware from '../middleware/auth.js';
 import logger from '../utils/logger.js';
+import { JWT_SECRET } from '../config/env.js';
 
 
 const router = Router();
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 
 interface TwoFASetupResponse {
   secret: string;

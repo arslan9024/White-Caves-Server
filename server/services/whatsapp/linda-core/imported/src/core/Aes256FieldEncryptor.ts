@@ -11,7 +11,10 @@ import crypto from 'node:crypto';
 export class Aes256FieldEncryptor {
   constructor(encryptionKeyHex) {
     // 32 bytes (256 bits) key
-    const rawKey = encryptionKeyHex || process.env.PII_ENCRYPTION_KEY || '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
+    const rawKey = encryptionKeyHex || process.env.PII_ENCRYPTION_KEY;
+    if (!rawKey) {
+      throw new Error('CRITICAL: PII_ENCRYPTION_KEY must be set');
+    }
     this.key = Buffer.from(rawKey, 'hex');
     this.algorithm = 'aes-256-gcm';
   }
