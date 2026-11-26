@@ -10,6 +10,12 @@
 
 import { createAkoyaSheetsClient, DEFAULT_AKOYA_SHEET_ID } from '../whatsapp/dh2AkoyaSheetIngestor.js';
 
+export const AKOYA_PMS_SHEET_ID =
+  process.env.AKOYA_PMS_SHEET_ID || '1NRqC1GywTZqKGfzeqM3ZrGb2nh9WOyOQr3xHMP4c1-o';
+export const AKOYA_PMS1_VIEW_SHEET_ID =
+  process.env.AKOYA_PMS1_VIEW_SHEET_ID || '16msSvbMZ9Quli-eL97lu6wMkXwJAeeQLje92gUf_tGk';
+export const AKOYA_RAW_SHEET_ID = DEFAULT_AKOYA_SHEET_ID;
+
 export interface SheetUpdateResult {
   spreadsheetId: string;
   range: string;
@@ -29,7 +35,7 @@ class AiSaritaSheetsService {
   /**
    * Get values from a specific sheet range
    */
-  async getRange(spreadsheetId: string = DEFAULT_AKOYA_SHEET_ID, range: string = 'Sheet1!A1:Z50') {
+  async getRange(spreadsheetId: string = AKOYA_PMS_SHEET_ID, range: string = 'DB_Properties!A1:J50') {
     const sheets = createAkoyaSheetsClient(false);
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId,
@@ -48,7 +54,7 @@ class AiSaritaSheetsService {
    * Update / edit specific cells in a spreadsheet range
    */
   async updateRange(
-    spreadsheetId: string = DEFAULT_AKOYA_SHEET_ID,
+    spreadsheetId: string = AKOYA_PMS_SHEET_ID,
     range: string,
     values: (string | number | boolean | null)[][]
   ): Promise<SheetUpdateResult> {
@@ -75,7 +81,7 @@ class AiSaritaSheetsService {
    * Append one or multiple rows to an existing sheet
    */
   async appendRows(
-    spreadsheetId: string = DEFAULT_AKOYA_SHEET_ID,
+    spreadsheetId: string = AKOYA_PMS_SHEET_ID,
     range: string,
     rows: (string | number | boolean | null)[][]
   ): Promise<SheetAppendResult> {
@@ -102,7 +108,7 @@ class AiSaritaSheetsService {
   /**
    * Fetch spreadsheet metadata (tabs / sheet titles)
    */
-  async getSpreadsheetMetadata(spreadsheetId: string = DEFAULT_AKOYA_SHEET_ID) {
+  async getSpreadsheetMetadata(spreadsheetId: string = AKOYA_PMS_SHEET_ID) {
     const sheets = createAkoyaSheetsClient(false);
     const meta = await sheets.spreadsheets.get({
       spreadsheetId,

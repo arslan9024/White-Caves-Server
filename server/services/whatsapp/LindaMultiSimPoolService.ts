@@ -105,9 +105,16 @@ class LindaMultiSimPoolService {
       if (landlordSync.syncedToMaryVault) {
         log.info(`Mary Vault auto-populated from Hunter SIM ${account.phoneNumber} -> ${landlordSync.handoff?.handoffId}`);
         getSocketServer()?.emitLindaHotLead({
-          type: 'LANDLORD_AVAILABLE_SYNCED', phone: fromPhone, cluster: landlordSync.cluster,
-          unitNumber: landlordSync.unitNumber, askingRentAed: landlordSync.askingRentAed,
-          routedTo: 'AI Mary (SUP-06-1-01-1) -> MD Closer (+971505760056)',
+          id: landlordSync.handoff?.handoffId || `landlord-${Date.now()}`,
+          phone: fromPhone,
+          name: `Landlord (${fromPhone})`,
+          category: 'LANDLORD_AVAILABLE_SYNCED',
+          project: landlordSync.cluster || 'DAMAC Hills 2',
+          unit: landlordSync.unitNumber,
+          inquiry: `Available unit synced at AED ${landlordSync.askingRentAed ?? 'TBD'}`,
+          confidence: 0.95,
+          assignedAgent: 'AI Mary (SUP-06-1-01-1) -> MD Closer (+971505760056)',
+          timestamp: new Date().toISOString(),
         });
         return landlordSync;
       }
@@ -115,9 +122,15 @@ class LindaMultiSimPoolService {
     const tenant = await this.routeInboundTenantToViewing({ fromPhone, message: body, receivedOnLine: account.phoneNumber });
     if (tenant?.routed) {
       getSocketServer()?.emitLindaHotLead({
-        type: 'TENANT_VIEWING_MATCHED', phone: fromPhone, cluster: tenant.cluster,
-        bedrooms: tenant.bedrooms, matchedUnitsCount: tenant.matchedUnits?.length ?? 0,
-        routedTo: 'AI Daisy (SUP-05-2-01-1)',
+        id: `tenant-${Date.now()}`,
+        phone: fromPhone,
+        name: `Tenant (${fromPhone})`,
+        category: 'TENANT_VIEWING_MATCHED',
+        project: tenant.cluster || 'DAMAC Hills 2',
+        inquiry: `Matched ${tenant.matchedUnits?.length ?? 0} ${tenant.bedrooms ?? ''}-BR unit(s) for viewing`,
+        confidence: 0.9,
+        assignedAgent: 'AI Daisy (SUP-05-2-01-1)',
+        timestamp: new Date().toISOString(),
       });
     }
     return tenant;

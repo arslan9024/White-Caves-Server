@@ -6,6 +6,8 @@
  * AEGIS V5.1 Decomposed Modular Service
  */
 
+export {};
+
 const CustomerDueDiligence = require('../../models/compliance/CustomerDueDiligence');
 const {
   isHighRiskJurisdiction,

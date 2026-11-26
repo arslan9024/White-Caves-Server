@@ -91,6 +91,7 @@ export interface LindaMessagePayload {
 
 /** Fired when Vardon / Linda campaign batch progress updates in real time */
 export interface LindaCampaignTelemetryPayload {
+  campaignId?: string;
   campaignName: string;
   status: string;
   totalDispatched: number;

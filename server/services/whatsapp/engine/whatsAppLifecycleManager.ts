@@ -88,6 +88,7 @@ export async function initializeWhatsAppClient(
     }),
     puppeteer: {
       headless: config.headless,
+      timeout: 120_000,
       ...(executablePath ? { executablePath } : {}),
       args: [
         '--no-sandbox',
@@ -100,6 +101,7 @@ export async function initializeWhatsAppClient(
         '--disable-extensions',
       ],
     },
+    authTimeoutMs: 120_000,
     restartOnAuthFail: true,
     takeoverOnConflict: true,
   };

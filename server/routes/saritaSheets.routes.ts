@@ -7,10 +7,27 @@
  */
 
 import { Router, Request, Response } from 'express';
-import { aiSaritaSheetsService } from '../services/google/aiSaritaSheetsService.js';
+import {
+  aiSaritaSheetsService,
+  AKOYA_PMS_SHEET_ID,
+  AKOYA_PMS1_VIEW_SHEET_ID,
+  AKOYA_RAW_SHEET_ID,
+} from '../services/google/aiSaritaSheetsService.js';
 import { requireAuth } from '../middleware/auth.js';
 
 const router = Router();
+
+// List canonical Google Sheet targets
+router.get('/targets', requireAuth, (_req: Request, res: Response) => {
+  res.json({
+    success: true,
+    data: {
+      pmsSource: { id: AKOYA_PMS_SHEET_ID, name: 'Akoya-Oxygen-PMS (Live DB)' },
+      pms1View: { id: AKOYA_PMS1_VIEW_SHEET_ID, name: 'Akoya-Oxygen-PMS1 (View Dashboard)' },
+      rawLegacy: { id: AKOYA_RAW_SHEET_ID, name: 'Akoya-Oxygen-2023-Arslan-only (Raw)' },
+    },
+  });
+});
 
 // Retrieve metadata & list of tabs
 router.get('/meta', requireAuth, async (req: Request, res: Response) => {

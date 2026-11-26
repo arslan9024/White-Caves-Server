@@ -73,7 +73,7 @@ export async function evaluateAndAutoPublishListing(
         project: property.subCommunity,
         unitNumber: property.unitNumber,
       });
-      if (driveResult.found && Array.isArray(driveResult.photoUrls)) {
+      if (driveResult.found && 'photoUrls' in driveResult && Array.isArray(driveResult.photoUrls)) {
         photoUrls = driveResult.photoUrls;
       }
     } catch (err) {
