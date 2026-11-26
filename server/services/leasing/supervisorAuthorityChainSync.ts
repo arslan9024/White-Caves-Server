@@ -80,12 +80,12 @@ export const SOVEREIGN_SUPERVISOR_CHAINS: SovereignMissionChainRecord[] = [
   {
     missionId: 'MISSION-2026-11-TRACK-B',
     track: 'TRACK_B',
-    title: 'Frontend Wave 2 Atomic Decomposition (AEG-042 < 350 Lines)',
+    title: 'Frontend Wave 2 & Wave 3 Atomic Decomposition (AEG-042 < 350 Lines)',
     dmsPositionCode: 'OPEN-DEPT12-SUP-ARCH-01',
-    tmsTaskCode: 'TSK-ARCH-W2',
+    tmsTaskCode: 'TSK-ARCH-W3',
     authorityChain: buildServerSupervisorAuthorityChain(
       { deptSlot: 12, managerSlot: 1, assistantManagerSlot: 1, supervisorSlot: 1 },
-      'AI Mary Wilkes (Frontend Wave 2 Architecture Decomposition Supervisor)',
+      'AI Mary Wilkes (Frontend Wave 2 & Wave 3 Architecture Decomposition Supervisor)',
       'TMS-COL-TRACK-B-ARCH-DECOMPOSITION',
       { dmsSynced: true, tmsSynced: true }
     ),
