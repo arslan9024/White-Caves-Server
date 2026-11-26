@@ -6,10 +6,11 @@
   "type": "module",
   "scripts": {
     "ports:check": "npx tsx ../secrets/ports.ts --check",
-    "dev": "nodemon",
+    "dev": "cross-env LINDA_TERMINAL_DASHBOARD=true nodemon",
     "dev:tsx": "tsx watch server/index.ts",
     "dev:dashboard": "cross-env LINDA_TERMINAL_DASHBOARD=true tsx watch server/index.ts",
     "start:dashboard": "cross-env LINDA_TERMINAL_DASHBOARD=true tsx server/index.ts",
+    "linda:terminal": "tsx server/scripts/lindaTerminalDashboard.ts",
     "start": "tsx server/index.ts",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "build": "tsc -p tsconfig.json",

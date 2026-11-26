@@ -46,7 +46,8 @@ export interface WhatsAppEngineCore extends EventEmitter {
  */
 export class WhatsAppEngine extends EventEmitter implements WhatsAppEngineCore {
   private status: WhatsAppEngineStatus = WhatsAppEngineStatus.DISCONNECTED;
-  private config: Required<WhatsAppEngineConfig>;
+  private config: Omit<Required<WhatsAppEngineConfig>, 'pairWithPhoneNumber'> &
+    Pick<WhatsAppEngineConfig, 'pairWithPhoneNumber'>;
   private reconnectAttempts = 0;
   private sessionActive = false;
   private clientAuthenticated = false;
@@ -68,6 +69,7 @@ export class WhatsAppEngine extends EventEmitter implements WhatsAppEngineCore {
       autoRestart: config.autoRestart ?? true,
       maxReconnectAttempts: config.maxReconnectAttempts ?? LINDA_MAX_RECONNECT_ATTEMPTS,
       reconnectDelay: config.reconnectDelay ?? LINDA_RECONNECT_DELAY,
+      pairWithPhoneNumber: config.pairWithPhoneNumber,
     };
     setWhatsAppEngine(this.config.clientId, this);
   }
@@ -116,6 +118,11 @@ export class WhatsAppEngine extends EventEmitter implements WhatsAppEngineCore {
       this.clientAuthenticated = false;
       this.qrCode = qr;
       this.emit('qr', qr);
+    });
+
+    client.on('code', (code: string) => {
+      console.log(`[WhatsAppEngine:${this.config.clientId}] PAIRING CODE: ${code}`);
+      this.emit('code', code);
     });
 
     client.on('authenticated', () => {

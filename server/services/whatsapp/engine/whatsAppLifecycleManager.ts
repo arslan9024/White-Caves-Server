@@ -99,11 +99,17 @@ export async function initializeWhatsAppClient(
         '--no-zygote',
         '--disable-gpu',
         '--disable-extensions',
+        '--disable-blink-features=AutomationControlled',
       ],
     },
+    bypassCSP: true,
+    userAgent:
+      process.env.LINDA_USER_AGENT ||
+      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
     authTimeoutMs: 120_000,
     restartOnAuthFail: true,
     takeoverOnConflict: true,
+    ...(config.pairWithPhoneNumber ? { pairWithPhoneNumber: config.pairWithPhoneNumber } : {}),
   };
 
   if (customWaWebVersionUrl) {

@@ -17,6 +17,11 @@ export interface WhatsAppEngineConfig {
   autoRestart?: boolean;
   maxReconnectAttempts?: number;
   reconnectDelay?: number;
+  pairWithPhoneNumber?: {
+    phoneNumber: string;
+    showNotification?: boolean;
+    intervalMs?: number;
+  };
 }
 
 export enum WhatsAppEngineStatus {
