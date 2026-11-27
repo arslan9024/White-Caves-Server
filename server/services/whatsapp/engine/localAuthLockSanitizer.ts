@@ -8,7 +8,14 @@
 import fs from 'fs';
 import path from 'path';
 
-const LOCK_FILES = ['SingletonLock', 'SingletonCookie', 'SingletonSocket'] as const;
+const LOCK_FILES = [
+  'SingletonLock',
+  'SingletonCookie',
+  'SingletonSocket',
+  'lockfile',
+  'DevToolsActivePort',
+  path.join('Default', 'LOCK'),
+] as const;
 
 interface SanitizeResult {
   file: string;

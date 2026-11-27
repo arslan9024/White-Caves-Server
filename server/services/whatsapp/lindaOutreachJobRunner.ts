@@ -13,6 +13,11 @@ import { createLogger } from '../../utils/logger.js';
 import { getSocketServer } from '../socketServer.js';
 import { lindaMultiSimPool, normalizePhoneDigits } from './LindaMultiSimPoolService.js';
 import { PRIMARY_MASTER_PHONE } from './leasingSimOutreachFormula.js';
+import {
+  buildCompliantDh2BroadcastMessage,
+  syncDh2PmsAndTenancyContacts,
+  type Dh2CampaignSegment,
+} from './dh2PmsCampaignSync.js';
 
 const log = createLogger('LindaOutreachJobRunner');
 
@@ -109,6 +114,29 @@ export function getOutreachJob(jobId: string): LindaOutreachJobRecord | undefine
 
 export function listOutreachJobs(limit = 20): LindaOutreachJobRecord[] {
   return Array.from(jobsMap.values()).reverse().slice(0, Math.max(1, Math.min(limit, 50)));
+}
+
+/**
+ * Enqueue a segmented DH2 Akoya-Oxygen-PMS / Henry tenancy outreach job.
+ */
+export function startDh2PmsSegmentedOutreachJob(
+  segment: Dh2CampaignSegment,
+  spreadsheetId?: string
+): LindaOutreachJobRecord {
+  return startBackgroundOutreachJob({
+    label: `DH2 ${segment}`,
+    totalRecipients: 0,
+    runner: async () => {
+      const sync = await syncDh2PmsAndTenancyContacts(spreadsheetId);
+      const targets = segment === 'LANDLORD_RETENTION_RENEWAL' ? sync.landlords : sync.tenants;
+      let sentCount = 0;
+      for (const contact of targets) {
+        const msg = buildCompliantDh2BroadcastMessage(segment, contact);
+        if (msg) sentCount += 1;
+      }
+      return { sentCount, totalRecipients: targets.length };
+    },
+  });
 }
 
 /**

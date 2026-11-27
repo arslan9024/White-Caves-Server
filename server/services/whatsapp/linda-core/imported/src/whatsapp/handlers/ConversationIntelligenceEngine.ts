@@ -44,7 +44,12 @@ import { methodsPart3 } from './intelligence_parts/part3.js';
 import { methodsPart4 } from './intelligence_parts/part4.js';
 import { methodsPart5 } from './intelligence_parts/part5.js';
 import { methodsPart6 } from './intelligence_parts/part6.js';
+import { triageIncomingDh2Reply } from '../../../dh2ReplyTriage.js';
 Object.assign(ConversationIntelligenceEngine.prototype, methodsPart1, methodsPart2, methodsPart3, methodsPart4, methodsPart5, methodsPart6);
+
+ConversationIntelligenceEngine.prototype.triageIncomingReply = function (phone, messageText) {
+  return triageIncomingDh2Reply(phone, messageText);
+};
 
 
 module.exports = ConversationIntelligenceEngine;

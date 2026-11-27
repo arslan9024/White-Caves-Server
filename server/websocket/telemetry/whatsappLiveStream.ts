@@ -35,6 +35,14 @@ export class WhatsAppLiveStream {
     });
   }
 
+  public emitQrCode(clientId: string, qr: string): void {
+    this.io.emit('wa:qr_updated', {
+      clientId,
+      qr,
+      timestamp: new Date().toISOString(),
+    });
+  }
+
   public emitBroadcastProgress(campaignId: string, progress: { sent: number; total: number; failed: number }): void {
     this.io.emit(`wa:campaign:${campaignId}:progress`, {
       campaignId,

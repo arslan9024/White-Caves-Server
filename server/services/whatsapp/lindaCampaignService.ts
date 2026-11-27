@@ -11,6 +11,20 @@ import {
 import { rateLimiter } from './whatsappUtils.js';
 import { LINDA_ENABLED } from '../../config/env.js';
 import { logger } from '../../utils/logger.js';
+import { normalizeOwnerPhone } from './outreach/OwnerPhoneNormalizer.js';
+import {
+  buildCompliantDh2BroadcastMessage,
+  sanitizePublicListingMessage,
+  syncDh2PmsAndTenancyContacts,
+} from './dh2PmsCampaignSync.js';
+import { triageIncomingDh2Reply } from './dh2ReplyTriage.js';
+
+export {
+  buildCompliantDh2BroadcastMessage,
+  sanitizePublicListingMessage,
+  syncDh2PmsAndTenancyContacts,
+  triageIncomingDh2Reply,
+};
 
 const db = prisma as any;
 const DISPATCHABLE_STATUSES = new Set(['draft', 'scheduled']);
@@ -65,9 +79,11 @@ export async function dispatchLindaCampaign(campaignId: string) {
   );
 
   const linda = await getOrInitLindaForCampaigns();
-  const finalMessage = applyTemplate(
-    campaign.messageTemplate,
-    campaign.templateVars as Record<string, unknown> | null
+  const finalMessage = sanitizePublicListingMessage(
+    applyTemplate(
+      campaign.messageTemplate,
+      campaign.templateVars as Record<string, unknown> | null
+    )
   );
 
   await db.lindaBroadcastCampaign.update({
@@ -79,7 +95,10 @@ export async function dispatchLindaCampaign(campaignId: string) {
   });
 
   const recipients = (campaign.targetList || [])
-    .map((p: unknown) => String(p).replace(/\D/g, ''))
+    .map((p: unknown) => {
+      const norm = normalizeOwnerPhone(String(p));
+      return norm.ok && norm.digits ? norm.digits : '';
+    })
     .filter(Boolean);
 
   if (recipients.length === 0) {
