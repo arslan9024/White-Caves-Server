@@ -79,6 +79,14 @@ router.patch(
       referenceNumber?: string;
     };
 
+    const allowedStatuses = ['draft', 'submitted', 'acknowledged', 'rejected'];
+    if (!goAmlStatus || !allowedStatuses.includes(goAmlStatus)) {
+      throw new AppError(`Invalid goAmlStatus. Must be one of: ${allowedStatuses.join(', ')}`, 400);
+    }
+    if (goAmlStatus === 'submitted' && (!referenceNumber || !referenceNumber.trim())) {
+      throw new AppError('referenceNumber is required when goAmlStatus is submitted', 400);
+    }
+
     const sar = await prisma.activity.findUnique({ where: { id } });
     if (!sar) throw new AppError('SAR record not found', 404);
 

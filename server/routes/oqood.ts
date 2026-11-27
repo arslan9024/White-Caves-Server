@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import crypto from 'crypto';
+import { requirePermission } from '../middleware/rbac.js';
 
 export const oqoodRouter = Router();
 
@@ -70,7 +71,7 @@ oqoodRouter.use((_req: Request, res: Response, next) => {
   next();
 });
 
-oqoodRouter.post('/register', async (req: Request, res: Response) => {
+oqoodRouter.post('/register', requirePermission('manage_rera_compliance'), async (req: Request, res: Response) => {
 
   const {
     projectNumber,

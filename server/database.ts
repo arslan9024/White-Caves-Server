@@ -155,14 +155,4 @@ process.once('SIGUSR2', async () => {
   process.kill(process.pid, 'SIGUSR2');
 });
 
-process.on('SIGINT', async () => {
-  await cleanupDb('SIGINT');
-  process.exit(0);
-});
-
-process.on('SIGTERM', async () => {
-  await cleanupDb('SIGTERM');
-  process.exit(0);
-});
-
 export { prisma, CONNECTION_POOL_CONFIG };

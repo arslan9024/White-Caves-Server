@@ -6,6 +6,7 @@
 
 import { Router, Request, Response } from 'express';
 import { asyncHandler } from '../middleware/errorHandler.js';
+import { requirePermission } from '../middleware/rbac.js';
 import { CANONICAL_DEALS } from '../../src/components/crm/DealManager/DealManager.data.js';
 
 const router = Router();
@@ -14,6 +15,7 @@ let inMemoryDeals = [...CANONICAL_DEALS];
 // GET /api/v1/deals - List all deals with optional filter by status/type
 router.get(
   '/',
+  requirePermission('view_deals'),
   asyncHandler(async (req: Request, res: Response) => {
     const { status, dealType, search } = req.query;
     let result = [...inMemoryDeals];
@@ -42,6 +44,7 @@ router.get(
 // GET /api/v1/deals/:id - Get single deal by ID
 router.get(
   '/:id',
+  requirePermission('view_deals'),
   asyncHandler(async (req: Request, res: Response) => {
     const { id } = req.params;
     const deal = inMemoryDeals.find(d => d.id === id || d._id === id || d.dealNumber === id);
@@ -55,6 +58,7 @@ router.get(
 // POST /api/v1/deals - Create a new deal
 router.post(
   '/',
+  requirePermission('manage_deals'),
   asyncHandler(async (req: Request, res: Response) => {
     const body = req.body;
     if (!body.title || !body.dealType) {
@@ -82,6 +86,8 @@ router.post(
       ownerName: body.ownerName || 'Emaar Asset Holdings',
       valueAED: Number(body.valueAED) || 150000,
       commissionAED: Number(body.commissionAED) || 7500,
+      vatAED: Number(((Number(body.commissionAED) || 7500) * 0.05).toFixed(2)),
+      corporateTaxReserveAED: Number(((Number(body.commissionAED) || 7500) * 0.09).toFixed(2)),
       commissionRate: Number(body.commissionRate) || 5,
       pdcSchedule: body.pdcSchedule || [],
       documents: body.documents || [],
@@ -99,12 +105,16 @@ router.post(
 // PATCH /api/v1/deals/:id/status - Advance deal status
 router.patch(
   '/:id/status',
+  requirePermission('manage_deals'),
   asyncHandler(async (req: Request, res: Response) => {
     const { id } = req.params;
     const { status } = req.body;
     const deal = inMemoryDeals.find(d => d.id === id || d._id === id);
     if (!deal) {
       return res.status(404).json({ success: false, error: `Deal ${id} not found.` });
+    }
+    if (deal.status === 'COMPLETED') {
+      return res.status(409).json({ success: false, error: `Deal ${id} is COMPLETED and immutable.` });
     }
     deal.status = status;
     deal.updatedAt = new Date().toISOString().split('T')[0];

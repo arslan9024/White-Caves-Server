@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { asyncHandler } from '../middleware/errorHandler.js';
 import { requirePermission, requireMinRole } from '../middleware/rbac.js';
+import { governmentTimeoutMiddleware } from './oqood.js';
 import {
   getComplianceStatus,
   getRequirements,
@@ -75,11 +76,11 @@ router.get('/consent/export', requireMinRole('manager'), asyncHandler(exportCons
 router.delete('/consent/:consentId', requireMinRole('manager'), asyncHandler(deleteConsentRecord));
 
 // ─── Ejari & DLD Integration ─────────────────────────────────────────────────
-router.get('/ejari-export', requirePermission('view_analytics'), asyncHandler(exportEjariData));
-router.patch('/ejari/:leaseId', requireMinRole('agent'), asyncHandler(updateEjariCertificate));
-router.post('/dld/register-oqood', requireMinRole('agent'), asyncHandler(registerOqood));
-router.post('/ejari/activate', requireMinRole('agent'), asyncHandler(activateEjari));
-router.post('/ejari/renew', requireMinRole('agent'), asyncHandler(renewEjari));
-router.get('/dld/health', asyncHandler(getDldHealth));
+router.get('/ejari-export', governmentTimeoutMiddleware, requirePermission('view_analytics'), asyncHandler(exportEjariData));
+router.patch('/ejari/:leaseId', governmentTimeoutMiddleware, requireMinRole('agent'), asyncHandler(updateEjariCertificate));
+router.post('/dld/register-oqood', governmentTimeoutMiddleware, requireMinRole('agent'), asyncHandler(registerOqood));
+router.post('/ejari/activate', governmentTimeoutMiddleware, requireMinRole('agent'), asyncHandler(activateEjari));
+router.post('/ejari/renew', governmentTimeoutMiddleware, requireMinRole('agent'), asyncHandler(renewEjari));
+router.get('/dld/health', governmentTimeoutMiddleware, requirePermission('view_analytics'), asyncHandler(getDldHealth));
 
 export default router;

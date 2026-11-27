@@ -45,7 +45,7 @@ export function mountPublicRoutes(app: Express): void {
     });
   });
 
-  app.get('/health/ready', async (_req: Request, res: Response) => {
+  const readinessHandler = async (_req: Request, res: Response) => {
     try {
       await prisma.$runCommandRaw({ ping: 1 });
       res.status(200).json({
@@ -60,7 +60,10 @@ export function mountPublicRoutes(app: Express): void {
         timestamp: new Date().toISOString(),
       });
     }
-  });
+  };
+
+  app.get('/health/ready', readinessHandler);
+  app.get('/ready', readinessHandler);
 
   // Public API health endpoint (used by runtime/deployment verifiers and Vercel checks)
   app.get('/api/health', (req: Request, res: Response) => {

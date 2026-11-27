@@ -79,6 +79,13 @@ router.post(
     if (!clientName) {
       throw new AppError('clientName is required', 400);
     }
+    const allowedTransactionTypes = ['sale', 'lease', 'off_plan', 'commercial'];
+    if (transactionType && !allowedTransactionTypes.includes(transactionType)) {
+      throw new AppError(`Invalid transactionType. Must be one of: ${allowedTransactionTypes.join(', ')}`, 400);
+    }
+    if (clientEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clientEmail)) {
+      throw new AppError('Invalid clientEmail format', 400);
+    }
 
     const kyc = await createKycRecord({
       clientId,

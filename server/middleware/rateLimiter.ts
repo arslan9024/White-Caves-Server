@@ -3,9 +3,14 @@
  */
 export class TieredRateLimiter {
   private hits = new Map<string, number[]>();
+  private readonly maxKeys = 10_000;
 
   allow(key: string, limit: number, windowMs = 60_000, nowMs = Date.now()): boolean {
     const recent = (this.hits.get(key) ?? []).filter((t) => nowMs - t < windowMs);
+    if (recent.length === 0 && this.hits.size >= this.maxKeys) {
+      const oldestKey = this.hits.keys().next().value;
+      if (oldestKey !== undefined) this.hits.delete(oldestKey);
+    }
     if (recent.length >= limit) {
       this.hits.set(key, recent);
       return false;

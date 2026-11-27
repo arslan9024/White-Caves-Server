@@ -120,6 +120,7 @@ export class RealtimeService {
       });
 
       socket.on('subscribe:comments', (entityId: string) => {
+        if (typeof entityId !== 'string' || !/^[a-zA-Z0-9_-]{1,64}$/.test(entityId)) return;
         socket.join(`comments:${entityId}`);
       });
 
@@ -152,7 +153,8 @@ export class RealtimeService {
 
     // Broadcast offline status
     if (rooms.length > 0) {
-      const departmentId = rooms[0]?.split(':')[1] || 'default';
+      const deptRoom = rooms.find(r => r.startsWith('department:'));
+      const departmentId = deptRoom?.split(':')[1] || 'default';
       this.broadcastPresence(departmentId);
     }
   }

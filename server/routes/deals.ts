@@ -1,5 +1,6 @@
 // @ts-nocheck
 import express from 'express';
+import { requirePermission } from '../middleware/rbac.js';
 import { createDealAuditEntry } from '../utils/dealAuditLedger.js';
 import TenancyDeal from '../models/TenancyDeal.js';
 import SalesDeal from '../models/SalesDeal.js';
@@ -8,7 +9,7 @@ import { seedAllDemoData } from '../seeds/demoDataSeeder.js';
 
 const router = express.Router();
 
-router.get('/tenancy', async (req, res) => {
+router.get('/tenancy', requirePermission('view_deals'), async (req, res) => {
   try {
     const { status, brokerId, isDemo, page = 1, limit = 20 } = req.query;
     const query = {};
@@ -34,7 +35,7 @@ router.get('/tenancy', async (req, res) => {
   }
 });
 
-router.get('/tenancy/:dealNumber', async (req, res) => {
+router.get('/tenancy/:dealNumber', requirePermission('view_deals'), async (req, res) => {
   try {
     const deal = await TenancyDeal.findOne({ dealNumber: req.params.dealNumber });
     if (!deal) {
@@ -46,7 +47,7 @@ router.get('/tenancy/:dealNumber', async (req, res) => {
   }
 });
 
-router.post('/tenancy', async (req, res) => {
+router.post('/tenancy', requirePermission('manage_deals'), async (req, res) => {
   try {
     const dealNumber = await TenancyDeal.generateDealNumber();
     // Schema validation enforced for payload
@@ -82,7 +83,7 @@ router.put('/tenancy/:dealNumber/status', async (req, res) => {
   }
 });
 
-router.get('/sales', async (req, res) => {
+router.get('/sales', requirePermission('view_deals'), async (req, res) => {
   try {
     const { status, dealType, brokerId, isDemo, page = 1, limit = 20 } = req.query;
     const query = {};
@@ -109,7 +110,7 @@ router.get('/sales', async (req, res) => {
   }
 });
 
-router.get('/sales/:dealNumber', async (req, res) => {
+router.get('/sales/:dealNumber', requirePermission('view_deals'), async (req, res) => {
   try {
     const deal = await SalesDeal.findOne({ dealNumber: req.params.dealNumber });
     if (!deal) {

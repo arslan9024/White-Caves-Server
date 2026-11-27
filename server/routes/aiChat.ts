@@ -7,7 +7,7 @@ const log = createLogger('aiChatRoute');
 
 // In-memory rate limiter: max 20 req/min per IP
 const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
-setInterval(() => rateLimitMap.clear(), 60_000);
+setInterval(() => rateLimitMap.clear(), 60_000).unref();
 
 function checkRateLimit(ip: string): boolean {
   const now = Date.now();
