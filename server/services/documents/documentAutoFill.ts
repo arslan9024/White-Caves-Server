@@ -15,6 +15,7 @@
 
 import { prisma } from '../../database.js';
 import logger from '../../utils/logger.js';
+import { UAE_VAT_RATE_PERCENT } from '../../config/uaeTaxFees.js';
 const db = prisma as any;
 
 // ─── Types ──────────────────────────────────────────────────────────────
@@ -402,7 +403,7 @@ async function autoFillCommissionInvoice(ctx: AutoFillContext): Promise<AutoFill
       vars.invoiceDate = formatDate(new Date());
 
       // VAT calculation (Phase 3D)
-      const vatRate = comm.vatRate || 5;
+      const vatRate = comm.vatRate ?? UAE_VAT_RATE_PERCENT;
       const vatAmount = comm.vatAmount || (comm.amount * vatRate / 100);
       vars.subtotal = formatCurrency(comm.amount);
       vars.vatAmount = formatCurrency(vatAmount);

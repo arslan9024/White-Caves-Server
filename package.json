@@ -13,6 +13,7 @@
     "linda:terminal": "tsx server/scripts/lindaTerminalDashboard.ts",
     "start": "tsx server/index.ts",
     "typecheck": "tsc --noEmit -p tsconfig.json",
+    "ts:ratchet": "node scripts/check-ts-ratchet.mjs",
     "build": "tsc -p tsconfig.json",
     "prisma:generate": "prisma generate",
     "prisma:push": "prisma db push",
