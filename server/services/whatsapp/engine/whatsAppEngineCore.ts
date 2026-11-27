@@ -101,6 +101,9 @@ export class WhatsAppEngine extends EventEmitter implements WhatsAppEngineCore {
         this.setStatus(WhatsAppEngineStatus.ERROR);
         console.error(`[WhatsAppEngine] Initialization failed for ${this.config.clientId}:`, error);
         this.emit('error', error);
+        if (this.config.autoRestart && this.reconnectAttempts < this.config.maxReconnectAttempts) {
+          void this.attemptReconnect();
+        }
         throw error;
       } finally {
         this.initPromise = null;
@@ -171,6 +174,9 @@ export class WhatsAppEngine extends EventEmitter implements WhatsAppEngineCore {
   private async handleIncomingMessage(message: unknown): Promise<void> {
     try {
       const wrapped = normalizeIncomingMessage(message);
+      if (this.messageQueue.length >= 500) {
+        this.messageQueue.shift();
+      }
       this.messageQueue.push(wrapped);
       this.messagesReceived += 1;
       this.emit('message', wrapped);
@@ -265,6 +271,10 @@ export class WhatsAppEngine extends EventEmitter implements WhatsAppEngineCore {
   }
 
   public async disconnect(): Promise<void> {
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
     try {
       if (this.client) {
         await this.client.destroy();
@@ -289,14 +299,7 @@ export class WhatsAppEngine extends EventEmitter implements WhatsAppEngineCore {
   }
 
   public getStats(): WhatsAppEngineStats {
-    return {
-      status: this.status,
-      isConnected: this.isConnected(),
-      queuedMessages: this.messageQueue.length,
-      reconnectAttempts: this.reconnectAttempts,
-      messagesSent: this.messagesSent,
-      messagesReceived: this.messagesReceived,
-    };
+    return { status: this.status, isConnected: this.isConnected(), queuedMessages: this.messageQueue.length, reconnectAttempts: this.reconnectAttempts, messagesSent: this.messagesSent, messagesReceived: this.messagesReceived };
   }
 
   private setStatus(newStatus: WhatsAppEngineStatus): void {
@@ -329,7 +332,12 @@ export class WhatsAppEngine extends EventEmitter implements WhatsAppEngineCore {
     }
   }
 
+  private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+
   private async attemptReconnect(): Promise<void> {
+    if (this.status === WhatsAppEngineStatus.RECONNECTING || this.reconnectTimer) {
+      return;
+    }
     if (this.reconnectAttempts >= this.config.maxReconnectAttempts) {
       this.setStatus(WhatsAppEngineStatus.ERROR);
       return;
@@ -337,10 +345,14 @@ export class WhatsAppEngine extends EventEmitter implements WhatsAppEngineCore {
     this.reconnectAttempts += 1;
     const delay = calculateReconnectDelay(this.config.reconnectDelay, this.reconnectAttempts);
     this.setStatus(WhatsAppEngineStatus.RECONNECTING);
-    setTimeout(async () => {
+    this.reconnectTimer = setTimeout(async () => {
+      this.reconnectTimer = null;
       try {
         this.sessionActive = false;
-        this.client = null;
+        if (this.client) {
+          await this.client.destroy().catch(() => {});
+          this.client = null;
+        }
         await this.initialize();
       } catch (err) {
         console.error(`[WhatsAppEngine:${this.config.clientId}] Reconnection failed:`, err);

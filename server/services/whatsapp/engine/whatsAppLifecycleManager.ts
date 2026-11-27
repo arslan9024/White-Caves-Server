@@ -128,8 +128,11 @@ export async function initializeWhatsAppClient(
 }
 
 /**
- * Calculate reconnect back-off delay capped at 5 minutes.
+ * Calculate reconnect back-off delay capped at 5 minutes with ±25% jitter
+ * to prevent thundering-herd reconnects across the 10-SIM fleet.
  */
 export function calculateReconnectDelay(baseDelay: number, attempt: number): number {
-  return Math.min(baseDelay * Math.pow(2, attempt - 1), 300_000);
+  const exponential = Math.min(baseDelay * Math.pow(2, attempt - 1), 300_000);
+  const jitterFactor = 0.75 + Math.random() * 0.5; // [0.75, 1.25]
+  return Math.round(exponential * jitterFactor);
 }

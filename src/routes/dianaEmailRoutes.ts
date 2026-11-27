@@ -4,6 +4,7 @@
  * Standard: AEGIS Single Purpose File Law (< 350 lines, AEG-042)
  */
 import { Router, Request, Response } from 'express';
+import { requireAuth, requireRole } from '../../server/middleware/auth.js';
 import {
   buildWhiteCavesLuxuryHtml,
   dispatchDianaCampaign,
@@ -12,12 +13,13 @@ import {
 } from '../services/dianaEmailCampaignService.js';
 
 const router = Router();
+router.use(requireAuth);
 
 router.get('/status', (_req: Request, res: Response) => {
   res.json({ success: true, data: getDianaMailerStatus() });
 });
 
-router.post('/preview', (req: Request, res: Response) => {
+router.post('/preview', requireRole('owner', 'admin', 'manager', 'supervisor'), (req: Request, res: Response) => {
   const { headline, bodyText, ownerName, propertyTitle, community } = req.body || {};
   if (!headline || !bodyText) {
     return res.status(400).json({ success: false, error: 'headline and bodyText are required' });
@@ -31,7 +33,7 @@ router.post('/preview', (req: Request, res: Response) => {
   return res.json({ success: true, html });
 });
 
-router.post('/send', async (req: Request, res: Response) => {
+router.post('/send', requireRole('owner', 'admin', 'manager', 'supervisor'), async (req: Request, res: Response) => {
   const payload = req.body as DianaCampaignPayload;
   if (!payload?.subject || !payload?.headline || !payload?.bodyText || !Array.isArray(payload?.recipients)) {
     return res.status(400).json({

@@ -35,6 +35,7 @@ class LindaMultiSimPoolService {
   private readonly switcher: MultiAccountSwitcherManager;
   private readonly rotator: MultiSimAccountRotator;
   private readonly attachedInbound = new Set<string>();
+  private readonly simErrorCooldownUntil = new Map<string, number>();
 
   constructor() {
     this.accounts = loadPoolAccountsConfig();
@@ -284,7 +285,17 @@ class LindaMultiSimPoolService {
         plan.push({ to: cleanTo, assignedSim: 'none', delayMs: 0, message, status: 'dnc_suppressed', error: 'Global DNC opt-out active' });
         continue;
       }
-      const selectedSim = this.rotator.selectBestAccount(availableHunterPhones);
+      const now = Date.now();
+      const eligibleHunters = this.listPoolAccounts()
+        .filter(a => !isPrimaryMasterAccount(a))
+        .filter(a => !connectedHunters.length || a.isConnected)
+        .filter(a => (this.simErrorCooldownUntil.get(a.phoneNumber) ?? 0) <= now)
+        .filter(a => {
+          const warmup = computeSimWarmupPolicy(input.simActivatedAtMap?.[a.phoneNumber]);
+          return a.hourlySent < Math.min(a.hourlyLimit, warmup.hourlyCap);
+        })
+        .map(a => a.phoneNumber);
+      const selectedSim = this.rotator.selectBestAccount(eligibleHunters);
       if (!selectedSim) {
         plan.push({ to: cleanTo, assignedSim: 'none', delayMs, message, status: 'rate_capped', error: 'All 9 Hunter SIMs at warmup/hourly anti-ban cap' });
         continue;
@@ -316,6 +327,7 @@ class LindaMultiSimPoolService {
         }
         plan.push({ to: cleanTo, assignedSim: selectedSim, delayMs, message, status: 'sent' });
       } catch (err) {
+        this.simErrorCooldownUntil.set(selectedSim, Date.now() + 60_000);
         plan.push({ to: cleanTo, assignedSim: selectedSim, delayMs, message, status: 'error', error: err instanceof Error ? err.message : 'Send failed' });
       }
     }
