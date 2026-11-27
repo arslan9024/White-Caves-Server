@@ -20,7 +20,7 @@ import ContactConsentService from '../../../campaigns/ContactConsentService.js';
 
 
 export const methodsPart3 = {
-  static async sendBulkMessage(options) {
+  async sendBulkMessage(options) {
     try {
       const {
         templateId,
@@ -154,7 +154,7 @@ export const methodsPart3 = {
     }
   },
 
-  static async scheduleMessage(options) {
+  async scheduleMessage(options) {
     try {
       const { scheduledFor, ...sendOptions } = options;
 
@@ -189,7 +189,7 @@ export const methodsPart3 = {
     }
   },
 
-  static async getDueScheduledMessages(limit = 50) {
+  async getDueScheduledMessages(limit = 50) {
     try {
       const now = new Date();
       const messages = await CommunicationLog.find({
@@ -209,7 +209,7 @@ export const methodsPart3 = {
     }
   },
 
-  static async getRecipientHistory(recipientPhone, options = {}) {
+  async getRecipientHistory(recipientPhone, options = {}) {
     try {
       const { page = 1, limit = 20, status } = options;
       const filter = { recipientPhone };
@@ -238,7 +238,7 @@ export const methodsPart3 = {
     }
   },
 
-  static async getDeliveryStats(filter = {}) {
+  async getDeliveryStats(filter = {}) {
     try {
       const stats = await CommunicationLog.getDeliveryStats(filter);
       return { success: true, stats };
@@ -247,7 +247,7 @@ export const methodsPart3 = {
     }
   },
 
-  static async getBulkStatus(bulkId) {
+  async getBulkStatus(bulkId) {
     try {
       const stats = await CommunicationLog.getBulkStatus(bulkId);
       const logs = await CommunicationLog.find({ bulkId }).sort({ createdAt: 1 });

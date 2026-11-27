@@ -20,7 +20,7 @@ import ContactConsentService from '../../../campaigns/ContactConsentService.js';
 
 
 export const methodsPart2 = {
-  static async sendTemplateMessage(options) {
+  async sendTemplateMessage(options) {
     try {
       const {
         templateId,
@@ -130,7 +130,7 @@ export const methodsPart2 = {
     }
   },
 
-  static async sendDirectMessage(options) {
+  async sendDirectMessage(options) {
     try {
       const {
         recipientPhone,

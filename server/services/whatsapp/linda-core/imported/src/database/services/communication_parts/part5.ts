@@ -20,7 +20,7 @@ import ContactConsentService from '../../../campaigns/ContactConsentService.js';
 
 
 export const methodsPart5 = {
-  static async previewTemplate(templateId, variables = {}, language = 'en') {
+  async previewTemplate(templateId, variables = {}, language = 'en') {
     try {
       const template = await CommunicationTemplate.findOne({ templateId });
       if (!template) {
@@ -47,7 +47,7 @@ export const methodsPart5 = {
     }
   },
 
-  static async getCategories() {
+  async getCategories() {
     try {
       const categories = await CommunicationTemplate.aggregate([
         { $group: { _id: '$category', count: { $sum: 1 }, active: { $sum: { $cond: [{ $eq: ['$status', 'active'] }, 1, 0] } } } },
@@ -67,7 +67,7 @@ export const methodsPart5 = {
     }
   },
 
-  static async seedDefaultTemplates() {
+  async seedDefaultTemplates() {
     const defaults = [
       {
         name: 'Welcome Tenant',

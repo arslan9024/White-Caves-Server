@@ -19,10 +19,8 @@ import { createHash } from 'node:crypto';
 import ContactConsentService from '../../../campaigns/ContactConsentService.js';
 
 
-export const methodsPart1 = {
-  static _idempotencyIndexPromise = null;,
-
-  static async _ensureIdempotencyIndex() {
+export const methodsPart1 = {
+  async _ensureIdempotencyIndex() {
     if (!CommunicationService._idempotencyIndexPromise) {
       CommunicationService._idempotencyIndexPromise = CommunicationLog.collection.createIndex(
         { idempotencyKey: 1 },
@@ -32,7 +30,7 @@ export const methodsPart1 = {
     return CommunicationService._idempotencyIndexPromise;
   },
 
-  static _validateIdempotencyKey(key) {
+  _validateIdempotencyKey(key) {
     if (key === undefined) return null;
     if (typeof key !== 'string' || !/^[A-Za-z0-9._:-]{8,128}$/.test(key)) {
       throw new Error('Idempotency-Key must contain 8-128 letters, numbers, dots, underscores, colons, or hyphens.');
@@ -40,7 +38,7 @@ export const methodsPart1 = {
     return key;
   },
 
-  static async _saveMessageLog(log) {
+  async _saveMessageLog(log) {
     try {
       await log.save();
       return { log, duplicate: false };
@@ -53,7 +51,7 @@ export const methodsPart1 = {
     }
   },
 
-  static async createTemplate(templateData) {
+  async createTemplate(templateData) {
     try {
       // Check for duplicate name
       const existing = await CommunicationTemplate.findOne({ name: templateData.name });
@@ -102,7 +100,7 @@ export const methodsPart1 = {
     }
   },
 
-  static async getTemplate(templateId) {
+  async getTemplate(templateId) {
     try {
       const template = await CommunicationTemplate.findOne({ templateId });
       return {
@@ -115,7 +113,7 @@ export const methodsPart1 = {
     }
   },
 
-  static async getTemplateByName(name) {
+  async getTemplateByName(name) {
     try {
       const template = await CommunicationTemplate.findOne({ name });
       return {
@@ -128,7 +126,7 @@ export const methodsPart1 = {
     }
   },
 
-  static async listTemplates(options = {}) {
+  async listTemplates(options = {}) {
     try {
       const {
         category,
@@ -175,7 +173,7 @@ export const methodsPart1 = {
     }
   },
 
-  static async updateTemplate(templateId, updateData) {
+  async updateTemplate(templateId, updateData) {
     try {
       const template = await CommunicationTemplate.findOne({ templateId });
       if (!template) {
@@ -212,7 +210,7 @@ export const methodsPart1 = {
     }
   },
 
-  static async deleteTemplate(templateId) {
+  async deleteTemplate(templateId) {
     try {
       const template = await CommunicationTemplate.findOne({ templateId });
       if (!template) {
@@ -231,7 +229,7 @@ export const methodsPart1 = {
     }
   },
 
-  static async permanentDeleteTemplate(templateId) {
+  async permanentDeleteTemplate(templateId) {
     try {
       const result = await CommunicationTemplate.deleteOne({ templateId });
       return {
@@ -243,7 +241,7 @@ export const methodsPart1 = {
     }
   },
 
-  static async approveTemplate(templateId, approvedBy) {
+  async approveTemplate(templateId, approvedBy) {
     try {
       const template = await CommunicationTemplate.findOne({ templateId });
       if (!template) {
@@ -269,7 +267,7 @@ export const methodsPart1 = {
     }
   },
 
-  static async activateTemplate(templateId) {
+  async activateTemplate(templateId) {
     try {
       const template = await CommunicationTemplate.findOne({ templateId });
       if (!template) {

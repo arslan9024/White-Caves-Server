@@ -20,7 +20,7 @@ import ContactConsentService from '../../../campaigns/ContactConsentService.js';
 
 
 export const methodsPart4 = {
-  static async getTemplateAnalytics(templateId) {
+  async getTemplateAnalytics(templateId) {
     try {
       const template = await CommunicationTemplate.findOne({ templateId });
       if (!template) {
@@ -69,7 +69,7 @@ export const methodsPart4 = {
     }
   },
 
-  static async getDashboard() {
+  async getDashboard() {
     try {
       const [
         totalTemplates,
@@ -114,7 +114,7 @@ export const methodsPart4 = {
     }
   },
 
-  static async retryFailedMessages(sendFn, limit = 20) {
+  async retryFailedMessages(sendFn, limit = 20) {
     try {
       const failedMessages = await CommunicationLog.getFailedMessages(limit);
 
@@ -156,7 +156,7 @@ export const methodsPart4 = {
     }
   },
 
-  static async processQueue(sendFn, limit = 50, delayMs = 1000) {
+  async processQueue(sendFn, limit = 50, delayMs = 1000) {
     try {
       if (typeof sendFn !== 'function') {
         return { success: false, error: 'A send function is required to process queued messages.' };
@@ -243,7 +243,7 @@ export const methodsPart4 = {
     }
   },
 
-  static async expireStaleQueued(maxAgeMs, now = new Date()) {
+  async expireStaleQueued(maxAgeMs, now = new Date()) {
     const cutoff = new Date(now.getTime() - maxAgeMs);
     const result = await CommunicationLog.updateMany(
       {
@@ -264,7 +264,7 @@ export const methodsPart4 = {
     return result.modifiedCount || 0;
   },
 
-  static detectVariables(content) {
+  detectVariables(content) {
     const regex = /\{(\w+)\}/g;
     const variables = [];
     const seen = new Set();
