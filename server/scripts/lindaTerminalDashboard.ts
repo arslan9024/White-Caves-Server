@@ -78,7 +78,11 @@ async function main(): Promise<void> {
     console.log(`[Status] ${opts.clientId} -> ${status}`);
   });
 
+  let codeReceived = false;
+  let pairingFallbackTriggered = false;
+
   engine.on('code', (code: string) => {
+    codeReceived = true;
     console.log('\n**************************************************************');
     console.log(`  WHATSAPP PAIRING CODE (${opts.pairPhone || opts.clientId}): ${code}`);
     console.log('  Enter this code on WhatsApp -> Linked Devices -> Link with phone number');
@@ -88,6 +92,23 @@ async function main(): Promise<void> {
   engine.on('qr', (qr: string) => {
     if (!opts.pairPhone) {
       console.log(`[QR] QR generated (length=${qr.length}). Use "p <phone>" to pair by code instead.`);
+    } else if (!codeReceived && !pairingFallbackTriggered) {
+      pairingFallbackTriggered = true;
+      console.log(`[Pairing] QR detected; requesting 8-char pairing code for ${opts.pairPhone}...`);
+      void engine
+        .requestPairingCode(opts.pairPhone)
+        .then((code) => {
+          if (!codeReceived) {
+            codeReceived = true;
+            console.log('\n**************************************************************');
+            console.log(`  WHATSAPP PAIRING CODE (${opts.pairPhone}): ${code}`);
+            console.log('  Enter this code on WhatsApp -> Linked Devices -> Link with phone number');
+            console.log('**************************************************************\n');
+          }
+        })
+        .catch((err) => {
+          console.error('[Pairing Fallback Error]', err instanceof Error ? err.message : err);
+        });
     }
   });
 

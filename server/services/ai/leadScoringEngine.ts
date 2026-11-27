@@ -3,6 +3,7 @@ import { prisma } from '../../database.js';
 import logger from '../../utils/logger.js';
 import { getTier, TIER_RANK, type ScoreBreakdown, type ScoreFactor, type ScoreResult, type BatchScoreResult } from './leadScoring/types.js';
 import { scoreEngagement, scoreDemographic, scoreBehavioral, scoreSource } from './leadScoring/categories.js';
+import { getScoreHistory, getScoreTrending, applyWhatsAppSignal } from './leadScoring/history.js';
 export { getTier, type ScoreBreakdown, type ScoreFactor, type ScoreResult, type BatchScoreResult } from './leadScoring/types.js';
 export { getScoreHistory, getScoreTrending, applyWhatsAppSignal } from './leadScoring/history.js';
 
@@ -253,8 +254,3 @@ export default {
   getScoreTrending,
   applyWhatsAppSignal,
 };
-
-// ─── Score History & Trending (Phase 4A) ────────────────────────────────
-
-/**
- * Get score history for a lead — used for trending charts.

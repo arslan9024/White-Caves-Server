@@ -119,7 +119,7 @@ export const kycWorkflowMethods = {
     }
     
     return profile;
-  }
+  },
   
   async updateKYCProfile(customerId, updates, actor) {
     const profile = await KYCProfile.findOne({ customerId });
@@ -188,7 +188,7 @@ export const kycWorkflowMethods = {
     });
     
     return profile;
-  }
+  },
   
   async verifyDocument(customerId, documentType, verificationData, actor) {
     const profile = await KYCProfile.findOne({ customerId });

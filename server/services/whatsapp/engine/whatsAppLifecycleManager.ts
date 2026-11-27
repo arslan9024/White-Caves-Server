@@ -50,7 +50,8 @@ export function resolvePuppeteerExecutablePath(): string | undefined {
  */
 export async function initializeWhatsAppClient(
   _engine: WhatsAppEngineCore,
-  config: Required<WhatsAppEngineConfig>,
+  config: Omit<Required<WhatsAppEngineConfig>, 'pairWithPhoneNumber'> &
+    Pick<WhatsAppEngineConfig, 'pairWithPhoneNumber'>,
   setStatus: (status: WhatsAppEngineStatus) => void,
   setupListeners: (client: any) => void,
   onClientCreated?: (client: any) => void

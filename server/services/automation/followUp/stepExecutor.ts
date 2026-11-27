@@ -3,7 +3,7 @@ import { logger } from '../../../utils/logger.js';
 import { resolveTemplate } from '../cadenceTemplates.js';
 import { createMetaAPIClient } from '../../whatsapp/metaAPI.js';
 import { normalizePhone, rateLimiter } from '../../whatsapp/whatsappUtils.js';
-import { completeSequence } from './lifecycle.js';
+import { completeSequence, cancelSequence, pauseSequence } from './lifecycle.js';
 import type { ProcessBatchResult, StepExecutionResult } from './types.js';
 
 export async function processScheduledSteps(): Promise<ProcessBatchResult> {
@@ -208,7 +208,7 @@ export async function executeStep(
           break;
         }
         try {
-          const { sendEmailTracked, wrapInBrandedTemplate } = await import('../emailService.js');
+          const { sendEmailTracked, wrapInBrandedTemplate } = await import('../../emailService.js');
           const subject = resolved?.subject || `Follow-up from White Caves — ${step.templateName}`;
           const bodyText =
             resolved?.body || 'Thank you for your interest in White Caves properties.';
@@ -228,7 +228,7 @@ export async function executeStep(
           } else {
             status = 'failed';
             errorMessage = emailResult.error || 'Email send failed';
-            message = errorMessage;
+            message = errorMessage || 'Email send failed';
           }
         } catch (emailErr) {
           status = 'failed';

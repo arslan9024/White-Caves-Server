@@ -1,5 +1,6 @@
 import { prisma } from '../../../database.js';
 import { logger } from '../../../utils/logger.js';
+import { getCadenceForTier } from '../cadenceTemplates.js';
 import type { SequenceSummary } from './types.js';
 
 export async function pauseSequence(sequenceId: string): Promise<void> {

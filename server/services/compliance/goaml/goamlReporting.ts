@@ -84,7 +84,7 @@ module.exports = {
 
       throw error;
     }
-  }
+  },
 
   /**
    * File a Suspicious Transaction Report (STR) via goAML
@@ -178,7 +178,7 @@ module.exports = {
       logger.error(`Error filing STR: ${error.message}`);
       throw error;
     }
-  }
+  },
 
   /**
    * Check goAML account status and fetch updates
@@ -218,7 +218,7 @@ module.exports = {
       logger.error(`Error checking GoAML account status: ${error.message}`);
       throw error;
     }
-  }
+  },
 
   /**
    * Get registration details for compliance review
@@ -244,7 +244,7 @@ module.exports = {
       logger.error(`Error retrieving registration details: ${error.message}`);
       throw error;
     }
-  }
+  },
 
   /**
    * Get list of all registrations with filters
@@ -276,7 +276,7 @@ module.exports = {
       logger.error(`Error retrieving registrations: ${error.message}`);
       throw error;
     }
-  }
+  },
 
   /**
    * Get STR filing history for a registration
