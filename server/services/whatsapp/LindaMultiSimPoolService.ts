@@ -148,15 +148,10 @@ class LindaMultiSimPoolService {
       return {
         ...account,
         digits,
-        engineStatus: stats.status,
-        isConnected: stats.isConnected,
-        isActive: active?.id === account.id,
-        qrAvailable: Boolean(engine.getQRCode()),
-        sessionDirExists,
-        hourlySent,
+        engineStatus: stats.status, isConnected: stats.isConnected, isActive: active?.id === account.id,
+        qrAvailable: Boolean(engine.getQRCode()), sessionDirExists, hourlySent,
         hourlyRemaining: Math.max(0, account.hourlyLimit - hourlySent),
-        messagesSent: stats.messagesSent,
-        messagesReceived: stats.messagesReceived,
+        messagesSent: stats.messagesSent, messagesReceived: stats.messagesReceived,
       };
     });
   }

@@ -89,11 +89,11 @@ router.get('/campaigns', requireRole('owner', 'admin'), getCampaigns);
 router.post('/campaigns', requireRole('owner', 'admin'), createCampaign);
 router.post('/campaigns/:id/dispatch', requireRole('owner', 'admin'), dispatchCampaign);
 router.post('/campaigns/dispatch-due', requireRole('owner', 'admin'), dispatchDueCampaignsHandler);
-router.post('/inventory-broadcast', inventoryBroadcast);
+router.post('/inventory-broadcast', requireRole('owner', 'admin'), inventoryBroadcast);
 
 // Intelligence & Cross-Assistant Integrations
-router.post('/nlp-route', nlpRoute);
-router.post('/henry-trigger', henryTrigger);
+router.post('/nlp-route', requirePermission('view_whatsapp_conversations'), nlpRoute);
+router.post('/henry-trigger', requirePermission('view_whatsapp_conversations'), henryTrigger);
 router.post('/transcribe', requirePermission('view_whatsapp_conversations'), transcribeAudio);
 router.get('/sentiment-alerts', requirePermission('view_whatsapp_conversations'), getSentimentAlerts);
 router.post('/sentiment-alerts/:alertId/acknowledge', requirePermission('view_whatsapp_conversations'), acknowledgeSentimentAlert);
