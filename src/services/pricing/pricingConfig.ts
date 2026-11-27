@@ -93,4 +93,3 @@ export function createPricingConfig() {
    * @returns {Object} Pricing calculation with breakdown
    */
   return config;
-}

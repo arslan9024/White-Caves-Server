@@ -50,6 +50,21 @@ export class LeadScoringEngine extends LeadScoringHelpers {
 
     return {
       overallScore: finalScore,
+      scoreGrade: this._getScoreGrade(finalScore),
+      scoreRange: this._getScoreRange(finalScore),
+      conversionProbability: this._estimateConversionProbability(finalScore),
+      recommendedAction: this._getRecommendedAction(finalScore),
+      components: scoreComponents,
+      generatedAt: new Date(),
+      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // Score valid 7 days
+    };
+  }
+
+  /**
+   * Score: Profile Fit (20 points)
+   * Does their budget and property preferences match available inventory?
+   */
+
   updateScoreWithInteraction(lead, interactionType) {
     const currentScore = lead.score || 0;
     const timeBoost = this.timeDecayFactor; // Refresh the score
@@ -74,16 +89,4 @@ export class LeadScoringEngine extends LeadScoringHelpers {
     };
   }
 }
-
-/**
- * AITaskRouterService.js
- * 
- * Intelligently selects optimal AI assistants for tasks
- * - Predicts which assistant will succeed
- * - Routes to highest-probability combo
- * - Learns from successes/failures
- * - Provides confidence scores
- * 
- * Expected gain: 30% faster routing, eliminate manual selection
- */
 

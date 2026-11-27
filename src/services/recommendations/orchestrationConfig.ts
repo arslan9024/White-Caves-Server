@@ -89,7 +89,6 @@ export function createOrchestrationConfig() {
    * Orchestrate a complex task using multiple AI assistants
    */
   return config;
-}
 
 export function simulateAssistantOutput(assistantId, taskType, input) {
     const outputs = {
@@ -136,4 +135,3 @@ export function simulateAssistantOutput(assistantId, taskType, input) {
   /**
    * Categorize task based on description
    */
-}

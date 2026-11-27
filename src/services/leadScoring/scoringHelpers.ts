@@ -1,19 +1,5 @@
 // @ts-nocheck
 export class LeadScoringHelpers {
-      scoreGrade: this._getScoreGrade(finalScore),
-      scoreRange: this._getScoreRange(finalScore),
-      conversionProbability: this._estimateConversionProbability(finalScore),
-      recommendedAction: this._getRecommendedAction(finalScore),
-      components: scoreComponents,
-      generatedAt: new Date(),
-      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // Score valid 7 days
-    };
-  }
-
-  /**
-   * Score: Profile Fit (20 points)
-   * Does their budget and property preferences match available inventory?
-   */
   _scoreProfileFit(lead) {
     let points = 0;
     let factors = [];

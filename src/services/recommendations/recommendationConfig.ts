@@ -271,9 +271,5 @@ export function createRecommendationConfig() {
         focus: 'Tax and portfolio optimization'
       }
     };
-  }
-
-  /**
-   * Generate personalized service recommendations for a customer
   return config;
 }

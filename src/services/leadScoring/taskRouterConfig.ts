@@ -70,4 +70,3 @@ export function createTaskRouterConfig() {
    * Get optimal assistant for a task
    */
   return config;
-}

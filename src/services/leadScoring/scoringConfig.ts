@@ -63,7 +63,5 @@ export function createScoringConfig() {
 
     // Time decay: older interactions worth less
     config.timeDecayFactor = 0.95; // 5% decay per day (older = lower value)
-  }
-
   return config;
 }
