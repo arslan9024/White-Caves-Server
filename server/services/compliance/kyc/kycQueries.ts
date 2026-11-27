@@ -45,7 +45,7 @@ export const kycQueryMethods = {
     });
     
     return profile;
-  }
+  },
   
   async rejectKYCProfile(customerId, rejectionData, actor) {
     const profile = await KYCProfile.findOne({ customerId });
@@ -79,7 +79,7 @@ export const kycQueryMethods = {
     });
     
     return profile;
-  }
+  },
   
   async createAMLAlert(alertData, actor) {
     const alert = new AMLAlert({
@@ -103,7 +103,7 @@ export const kycQueryMethods = {
     });
     
     return alert;
-  }
+  },
   
   async getKYCStats() {
     const [statusStats, riskStats, pendingCount, alertStats] = await Promise.all([
@@ -121,7 +121,7 @@ export const kycQueryMethods = {
       },
       alerts: alertStats[0] || {}
     };
-  }
+  },
   
   async getPendingVerifications(options = {}) {
     return KYCProfile.find({
@@ -130,7 +130,7 @@ export const kycQueryMethods = {
     .sort({ priority: -1, createdAt: 1 })
     .limit(options.limit || 50)
     .select('-documents.fileUrl');
-  }
+  },
   
   async getHighRiskProfiles(options = {}) {
     return KYCProfile.find({
@@ -139,15 +139,13 @@ export const kycQueryMethods = {
     })
     .sort({ 'riskAssessment.score': -1 })
     .limit(options.limit || 50);
-  }
+  },
   
   async getOpenAlerts(options = {}) {
     return AMLAlert.getOpenAlerts(options);
-  }
+  },
   
   async getAuditTrail(entityType, entityId, options = {}) {
     return ComplianceAudit.getAuditTrail(entityType, entityId, options);
-  }
-}
-
+  },
 };

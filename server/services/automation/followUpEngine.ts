@@ -1,6 +1,6 @@
 import { prisma } from '../../database.js';
 import { logger } from '../../utils/logger.js';
-import { getCadenceForTier } from './cadenceTemplates.js';
+import { getCadenceForTier, type CadenceTemplate, type CadenceStep } from './cadenceTemplates.js';
 import { resolveCadenceFromDynamicRules, type StartSequenceResult } from './followUp/types.js';
 export type { StartSequenceResult, StepExecutionResult, SequenceSummary, ProcessBatchResult } from './followUp/types.js';
 export { processScheduledSteps, executeStep } from './followUp/stepExecutor.js';

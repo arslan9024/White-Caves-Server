@@ -63,7 +63,7 @@ export const signatureWorkflows = {
     } catch (error) {
       throw new Error(`Failed to create signature request: ${error.message}`);
     }
-  }
+  },
 
   /**
    * Verify signature token is valid
@@ -120,7 +120,7 @@ export const signatureWorkflows = {
     } catch (error) {
       throw new Error(`Token verification failed: ${error.message}`);
     }
-  }
+  },
 
   /**
    * Save signature data
@@ -188,7 +188,7 @@ export const signatureWorkflows = {
     } catch (error) {
       throw new Error(`Failed to save signature: ${error.message}`);
     }
-  }
+  },
 
   /**
    * Check if all required signatures are collected
@@ -230,7 +230,7 @@ export const signatureWorkflows = {
       console.error('Error checking signature completion:', error);
       return false;
     }
-  }
+  },
 
   /**
    * Create audit log entry
@@ -256,7 +256,7 @@ export const signatureWorkflows = {
       console.error('Error creating audit log:', error);
       // Don't throw to prevent blocking the main operation
     }
-  }
+  },
 
   /**
    * Get contract audit trail
@@ -271,7 +271,7 @@ export const signatureWorkflows = {
     } catch (error) {
       throw new Error(`Failed to get audit trail: ${error.message}`);
     }
-  }
+  },
 
   /**
    * Send signing notification

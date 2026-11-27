@@ -97,14 +97,11 @@ const startServer = async (app: Express, runtime: ServerRuntime) => {
       logger.warn('AssistantOrchestrator init failed:', err instanceof Error ? err.message : err);
     });
 
-  // Optional: Launch Linda Terminal Health Dashboard when LINDA_TERMINAL_DASHBOARD=true
+  // Optional: Launch Linda Interactive Terminal Dashboard when LINDA_TERMINAL_DASHBOARD=true
   if (process.env.LINDA_TERMINAL_DASHBOARD === 'true') {
-    import('../services/whatsapp/linda-core/imported/src/terminal/TerminalHealthDashboard.js')
-      .then(({ default: terminalHealthDashboard }) => {
-        if (terminalHealthDashboard && typeof (terminalHealthDashboard as { startAutoRefresh?: (interval?: number) => void }).startAutoRefresh === 'function') {
-          (terminalHealthDashboard as { startAutoRefresh: (interval?: number) => void }).startAutoRefresh(5000);
-          logger.info('Linda Terminal Health Dashboard auto-refresh initiated.');
-        }
+    import('../scripts/lindaInteractiveTerminal.js')
+      .then(({ attachLindaInteractiveTerminal }) => {
+        attachLindaInteractiveTerminal();
       })
       .catch((err: unknown) => {
         logger.warn('Linda Terminal Dashboard startup skipped:', err instanceof Error ? err.message : err);

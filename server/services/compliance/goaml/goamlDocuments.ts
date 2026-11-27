@@ -41,7 +41,7 @@ module.exports = {
       logger.error(`Error uploading documents: ${error.message}`);
       throw error;
     }
-  }
+  },
 
   /**
    * Helper function to validate email format
@@ -51,7 +51,7 @@ module.exports = {
   isValidEmail(email) {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     return emailRegex.test(email);
-  }
+  },
 
   /**
    * Get human-readable status description
@@ -68,7 +68,7 @@ module.exports = {
       rejected: 'Rejected - Requires corrections and resubmission',
     };
     return descriptions[status] || 'Unknown Status';
-  }
+  },
 
   /**
    * Get human-readable goAML status description
@@ -83,5 +83,5 @@ module.exports = {
       suspended: 'Suspended - Contact FIU for details',
     };
     return descriptions[status] || 'Unknown Status';
-  }
+  },
 };

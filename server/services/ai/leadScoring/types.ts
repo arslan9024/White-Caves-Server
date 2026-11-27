@@ -14,9 +14,9 @@
  *   const batch  = await batchRescoreLeads();
  */
 
-import { prisma } from '../../database.js';
-import logger from '../../utils/logger.js';
-import { convertToAED, isSupportedCurrency, type SupportedCurrency } from '../currencyService.js';
+import { prisma } from '../../../database.js';
+import logger from '../../../utils/logger.js';
+import { convertToAED, isSupportedCurrency, type SupportedCurrency } from '../../currencyService.js';
 
 // ─── Types ──────────────────────────────────────────────────────────────
 
@@ -68,5 +68,5 @@ export function getTier(score: number): 'hot' | 'warm' | 'cold' | 'inactive' {
   return 'inactive';
 }
 
-const TIER_RANK: Record<string, number> = { inactive: 0, cold: 1, warm: 2, hot: 3 };
+export const TIER_RANK: Record<string, number> = { inactive: 0, cold: 1, warm: 2, hot: 3 };
 

@@ -36,7 +36,7 @@ export const signatureHelpers = {
     } catch (error) {
       throw new Error(`Failed to resend signing request: ${error.message}`);
     }
-  }
+  },
 
   /**
    * Cancel signature request
@@ -64,7 +64,7 @@ export const signatureHelpers = {
     } catch (error) {
       throw new Error(`Failed to cancel signature request: ${error.message}`);
     }
-  }
+  },
 
   /**
    * Get signature statistics for a contract
@@ -94,7 +94,7 @@ export const signatureHelpers = {
     } catch (error) {
       throw new Error(`Failed to get signature stats: ${error.message}`);
     }
-  }
+  },
 
   /**
    * Calculate average time to sign
@@ -119,7 +119,7 @@ export const signatureHelpers = {
       return `${hours}h ${minutes}m`;
     }
     return `${minutes}m`;
-  }
+  },
 
   /**
    * Batch create signature requests
@@ -151,7 +151,5 @@ export const signatureHelpers = {
     } catch (error) {
       throw new Error(`Failed to create batch signature requests: ${error.message}`);
     }
-  }
-}
-
+  },
 };

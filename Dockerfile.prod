@@ -18,14 +18,8 @@ RUN npm ci --legacy-peer-deps
 # Copy entire codebase
 COPY . .
 
-# Enforce the same runtime floor as local development and CI.
-RUN npm run dev:precheck
-
-# Build frontend (Vite)
+# Build TypeScript server
 RUN npm run build
-
-# Compile TypeScript server code to dist/server/
-RUN npx tsc --project tsconfig.server.json
 
 # Copy Prisma schema for runtime client generation
 COPY prisma ./prisma

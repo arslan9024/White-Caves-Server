@@ -73,7 +73,6 @@
     "pdf-parse": "^2.4.5",
     "pdfjs-dist": "^6.5.438",
     "pdfkit": "^0.18.0",
-    "pg": "^8.12.0",
     "prisma": "^6.19.3",
     "qrcode": "^1.5.4",
     "qrcode-terminal": "^0.12.0",

@@ -279,7 +279,7 @@ export async function scoreBehavioral(leadId: string): Promise<{ score: number; 
  * SOURCE (10% weight) — How high-quality is the lead source?
  * Factors: source channel quality, lead age relative to source
  */
-function scoreSource(source: string, createdAt: Date): { score: number; factors: ScoreFactor[] } {
+export function scoreSource(source: string, createdAt: Date): { score: number; factors: ScoreFactor[] } {
   const factors: ScoreFactor[] = [];
   let score = 0;
 

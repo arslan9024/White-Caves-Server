@@ -1,0 +1,222 @@
+export const PROPERTIES_PORTFOLIO_PART_3 = [
+  {
+    "id": "PROP-1041",
+    "title": "Luxury Penthouse in Palm Jumeirah",
+    "priceAED": 2833095.80848975,
+    "bedrooms": 1,
+    "bathrooms": 2,
+    "areaSqFt": 1852.3582354933408,
+    "community": "Palm Jumeirah",
+    "status": "Active",
+    "featured": false
+  },
+  {
+    "id": "PROP-1042",
+    "title": "Luxury Apartment in Downtown Dubai",
+    "priceAED": 6564239.224058052,
+    "bedrooms": 3,
+    "bathrooms": 6,
+    "areaSqFt": 4034.603523218361,
+    "community": "Downtown Dubai",
+    "status": "Active",
+    "featured": false
+  },
+  {
+    "id": "PROP-1043",
+    "title": "Luxury Townhouse in Dubai Marina",
+    "priceAED": 2951599.722845289,
+    "bedrooms": 4,
+    "bathrooms": 6,
+    "areaSqFt": 1916.387990181647,
+    "community": "Dubai Marina",
+    "status": "Active",
+    "featured": false
+  },
+  {
+    "id": "PROP-1044",
+    "title": "Luxury Villa in Emirates Hills",
+    "priceAED": 2250122.5470424485,
+    "bedrooms": 1,
+    "bathrooms": 4,
+    "areaSqFt": 7572.155541764594,
+    "community": "Emirates Hills",
+    "status": "Active",
+    "featured": false
+  },
+  {
+    "id": "PROP-1045",
+    "title": "Luxury Penthouse in DAMAC Hills 2",
+    "priceAED": 10287662.918219741,
+    "bedrooms": 4,
+    "bathrooms": 1,
+    "areaSqFt": 8293.140904315353,
+    "community": "DAMAC Hills 2",
+    "status": "Sold",
+    "featured": false
+  },
+  {
+    "id": "PROP-1046",
+    "title": "Luxury Apartment in Palm Jumeirah",
+    "priceAED": 7444300.62357556,
+    "bedrooms": 4,
+    "bathrooms": 4,
+    "areaSqFt": 7474.661672951097,
+    "community": "Palm Jumeirah",
+    "status": "Active",
+    "featured": false
+  },
+  {
+    "id": "PROP-1047",
+    "title": "Luxury Townhouse in Downtown Dubai",
+    "priceAED": 6775270.306641301,
+    "bedrooms": 2,
+    "bathrooms": 3,
+    "areaSqFt": 1200.47608112434,
+    "community": "Downtown Dubai",
+    "status": "Active",
+    "featured": false
+  },
+  {
+    "id": "PROP-1048",
+    "title": "Luxury Villa in Dubai Marina",
+    "priceAED": 10431316.265192019,
+    "bedrooms": 3,
+    "bathrooms": 4,
+    "areaSqFt": 8249.57301553999,
+    "community": "Dubai Marina",
+    "status": "Active",
+    "featured": false
+  },
+  {
+    "id": "PROP-1049",
+    "title": "Luxury Penthouse in Emirates Hills",
+    "priceAED": 3036566.008856412,
+    "bedrooms": 1,
+    "bathrooms": 2,
+    "areaSqFt": 5936.5654538447425,
+    "community": "Emirates Hills",
+    "status": "Active",
+    "featured": false
+  },
+  {
+    "id": "PROP-1050",
+    "title": "Luxury Apartment in DAMAC Hills 2",
+    "priceAED": 10004535.533474596,
+    "bedrooms": 4,
+    "bathrooms": 6,
+    "areaSqFt": 6636.242032152999,
+    "community": "DAMAC Hills 2",
+    "status": "Sold",
+    "featured": true
+  },
+  {
+    "id": "PROP-1051",
+    "title": "Luxury Townhouse in Palm Jumeirah",
+    "priceAED": 7020220.090930162,
+    "bedrooms": 1,
+    "bathrooms": 4,
+    "areaSqFt": 4906.241537934278,
+    "community": "Palm Jumeirah",
+    "status": "Active",
+    "featured": false
+  },
+  {
+    "id": "PROP-1052",
+    "title": "Luxury Villa in Downtown Dubai",
+    "priceAED": 2694301.0310548404,
+    "bedrooms": 3,
+    "bathrooms": 6,
+    "areaSqFt": 9113.633716296252,
+    "community": "Downtown Dubai",
+    "status": "Active",
+    "featured": false
+  },
+  {
+    "id": "PROP-1053",
+    "title": "Luxury Penthouse in Dubai Marina",
+    "priceAED": 3613099.7857109373,
+    "bedrooms": 2,
+    "bathrooms": 1,
+    "areaSqFt": 4427.088171103815,
+    "community": "Dubai Marina",
+    "status": "Active",
+    "featured": false
+  },
+  {
+    "id": "PROP-1054",
+    "title": "Luxury Apartment in Emirates Hills",
+    "priceAED": 10820665.556682678,
+    "bedrooms": 2,
+    "bathrooms": 3,
+    "areaSqFt": 5667.819891926697,
+    "community": "Emirates Hills",
+    "status": "Active",
+    "featured": false
+  },
+  {
+    "id": "PROP-1055",
+    "title": "Luxury Townhouse in DAMAC Hills 2",
+    "priceAED": 7475020.887325943,
+    "bedrooms": 3,
+    "bathrooms": 1,
+    "areaSqFt": 7818.109150439618,
+    "community": "DAMAC Hills 2",
+    "status": "Sold",
+    "featured": false
+  },
+  {
+    "id": "PROP-1056",
+    "title": "Luxury Villa in Palm Jumeirah",
+    "priceAED": 3071727.167325968,
+    "bedrooms": 4,
+    "bathrooms": 2,
+    "areaSqFt": 7355.493911674759,
+    "community": "Palm Jumeirah",
+    "status": "Active",
+    "featured": false
+  },
+  {
+    "id": "PROP-1057",
+    "title": "Luxury Penthouse in Downtown Dubai",
+    "priceAED": 2598953.8445800724,
+    "bedrooms": 4,
+    "bathrooms": 4,
+    "areaSqFt": 2435.8572241216652,
+    "community": "Downtown Dubai",
+    "status": "Active",
+    "featured": false
+  },
+  {
+    "id": "PROP-1058",
+    "title": "Luxury Apartment in Dubai Marina",
+    "priceAED": 2622896.739515313,
+    "bedrooms": 4,
+    "bathrooms": 5,
+    "areaSqFt": 9025.821437332637,
+    "community": "Dubai Marina",
+    "status": "Active",
+    "featured": false
+  },
+  {
+    "id": "PROP-1059",
+    "title": "Luxury Townhouse in Emirates Hills",
+    "priceAED": 9759427.983457312,
+    "bedrooms": 2,
+    "bathrooms": 2,
+    "areaSqFt": 2653.7392110135115,
+    "community": "Emirates Hills",
+    "status": "Active",
+    "featured": false
+  },
+  {
+    "id": "PROP-1060",
+    "title": "Luxury Villa in DAMAC Hills 2",
+    "priceAED": 11860567.531601595,
+    "bedrooms": 4,
+    "bathrooms": 2,
+    "areaSqFt": 6848.288053629682,
+    "community": "DAMAC Hills 2",
+    "status": "Sold",
+    "featured": true
+  }
+];

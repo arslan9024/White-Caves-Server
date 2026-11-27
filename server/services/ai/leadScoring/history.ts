@@ -2,8 +2,8 @@
 import { prisma } from '../../../database.js';
 import logger from '../../../utils/logger.js';
 import { scoreLead } from '../leadScoringEngine.js';
+import { getTier, type ScoreResult } from './types.js';
 
- */
 export async function getScoreHistory(
   leadId: string,
   options: { limit?: number; days?: number } = {}
