@@ -27,9 +27,12 @@ interface UniqueOutputEntry {
   time: string;
 }
 
-const MAX_UNIQUE_OUTPUTS = 12;
-const uniqueOutputKeys = new Set<string>();
-const outputFeed: UniqueOutputEntry[] = [];
+const MAX_SERVER_OUTPUTS = 6;
+const MAX_LINDA_OUTPUTS = 6;
+const uniqueServerKeys = new Set<string>();
+const uniqueLindaKeys = new Set<string>();
+const serverFeed: UniqueOutputEntry[] = [];
+const lindaFeed: UniqueOutputEntry[] = [];
 let suppressedDuplicates = 0;
 let lastInputCommand = 'None';
 let lastCommandMs = 0;
@@ -91,20 +94,29 @@ function normalizeLogMessage(raw: string): string {
     .replace(/\s+/g, ' ');
 }
 
+function isLindaLog(message: string): boolean {
+  return /linda|whatsapp|sim|qr|pairing|outreach|campaign/i.test(message);
+}
+
 function pushUniqueOutput(level: OutputLevel, message: string): boolean {
   const normalized = normalizeLogMessage(message);
   if (!normalized) return false;
   const key = `${level}:${normalized}`;
-  if (uniqueOutputKeys.has(key)) {
+  const targetLinda = isLindaLog(normalized);
+  const keySet = targetLinda ? uniqueLindaKeys : uniqueServerKeys;
+  const feed = targetLinda ? lindaFeed : serverFeed;
+  const maxItems = targetLinda ? MAX_LINDA_OUTPUTS : MAX_SERVER_OUTPUTS;
+
+  if (keySet.has(key)) {
     suppressedDuplicates += 1;
     scheduleRender();
     return false;
   }
-  uniqueOutputKeys.add(key);
-  outputFeed.push({ key, level, message: normalized, time: formatTime() });
-  if (outputFeed.length > MAX_UNIQUE_OUTPUTS) {
-    const removed = outputFeed.shift();
-    if (removed) uniqueOutputKeys.delete(removed.key);
+  keySet.add(key);
+  feed.push({ key, level, message: normalized, time: formatTime() });
+  if (feed.length > maxItems) {
+    const removed = feed.shift();
+    if (removed) keySet.delete(removed.key);
   }
   scheduleRender();
   return true;
@@ -166,16 +178,30 @@ function renderDashboard(): void {
     );
   }
 
+  const maxMsgLen = Math.max(24, width - 20);
   lines.push(divider);
   lines.push(
-    `${ANSI.cyan}${ANSI.bold}  UNIQUE OUTPUTS${ANSI.reset} ${ANSI.dim}(last ${MAX_UNIQUE_OUTPUTS} | ${suppressedDuplicates} duplicates suppressed)${ANSI.reset}`
+    `${ANSI.cyan}${ANSI.bold}▼ WHITE CAVES SERVER OUTPUT${ANSI.reset} ${ANSI.dim}(last ${MAX_SERVER_OUTPUTS} | ${suppressedDuplicates} dupes suppressed)${ANSI.reset}`
   );
-
-  if (outputFeed.length === 0) {
-    lines.push(`  ${ANSI.dim}No unique events yet.${ANSI.reset}`);
+  if (serverFeed.length === 0) {
+    lines.push(`  ${ANSI.dim}No server events yet.${ANSI.reset}`);
   } else {
-    const maxMsgLen = Math.max(24, width - 20);
-    for (const entry of outputFeed) {
+    for (const entry of serverFeed) {
+      const color = levelColor(entry.level);
+      lines.push(
+        `  ${ANSI.dim}${entry.time}${ANSI.reset} ${color}[${entry.level.padEnd(4)}]${ANSI.reset} ${ANSI.white}${truncate(entry.message, maxMsgLen)}${ANSI.reset}`
+      );
+    }
+  }
+
+  lines.push(divider);
+  lines.push(
+    `${ANSI.green}${ANSI.bold}◆ AI LINDA OUTPUT${ANSI.reset} ${ANSI.dim}(last ${MAX_LINDA_OUTPUTS} | WhatsApp & Outreach)${ANSI.reset}`
+  );
+  if (lindaFeed.length === 0) {
+    lines.push(`  ${ANSI.dim}No Linda events yet.${ANSI.reset}`);
+  } else {
+    for (const entry of lindaFeed) {
       const color = levelColor(entry.level);
       lines.push(
         `  ${ANSI.dim}${entry.time}${ANSI.reset} ${color}[${entry.level.padEnd(4)}]${ANSI.reset} ${ANSI.white}${truncate(entry.message, maxMsgLen)}${ANSI.reset}`
@@ -223,10 +249,12 @@ async function handleCommand(trimmed: string): Promise<void> {
     : rawCmd;
 
   if (cmd === 'clear') {
-    uniqueOutputKeys.clear();
-    outputFeed.length = 0;
+    uniqueServerKeys.clear();
+    uniqueLindaKeys.clear();
+    serverFeed.length = 0;
+    lindaFeed.length = 0;
     suppressedDuplicates = 0;
-    pushUniqueOutput('INFO', 'Output feed cleared.');
+    pushUniqueOutput('INFO', 'Server & Linda output feeds cleared.');
   } else if (cmd === 'status') {
     const accounts = lindaMultiSimPool.listPoolAccounts();
     const online = accounts.filter(a => a.isConnected).length;
@@ -362,4 +390,7 @@ export function attachLindaInteractiveTerminal(): void {
   }
 
   renderDashboard();
+  setInterval(() => {
+    renderDashboard();
+  }, 5000).unref();
 }
