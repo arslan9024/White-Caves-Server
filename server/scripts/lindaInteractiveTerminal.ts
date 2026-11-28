@@ -200,8 +200,8 @@ function renderDashboard(): void {
   if (rawKeypadActive) {
     lines.push(`  ${ANSI.white}Keypad:${ANSI.reset} ${ANSI.dim}Press 1-5/0 for instant action, or type command + Enter${ANSI.reset}`);
     lines.push(`  ${ANSI.red}${ANSI.bold}input>${ANSI.reset} ${ANSI.white}${inputBuffer}${ANSI.reset}`);
-  } else if (!process.stdin.isTTY) {
-    lines.push(`  ${ANSI.dim}(Non-TTY stdin: interactive keypad disabled; Output Dashboard live)${ANSI.reset}`);
+  } else {
+    lines.push(`  ${ANSI.white}Keypad:${ANSI.reset} ${ANSI.dim}Type 1-5/0 or command + Enter${ANSI.reset}`);
   }
   lines.push(divider);
 
@@ -295,70 +295,70 @@ export function attachLindaInteractiveTerminal(): void {
     } catch {
       rawKeypadActive = false;
     }
+  }
 
-    if (rawKeypadActive) {
-      process.stdin.resume();
-      process.stdin.on('keypress', async (str: string, key: readline.Key) => {
-        if (key?.ctrl && key.name === 'c') {
-          process.stdin.setRawMode?.(false);
-          process.exit(0);
-        }
-        if (key?.name === 'escape') {
-          inputBuffer = '';
-          renderDashboard();
-          return;
-        }
-        if (key?.name === 'backspace') {
-          inputBuffer = inputBuffer.slice(0, -1);
-          renderDashboard();
-          return;
-        }
-        if (key?.name === 'return' || key?.name === 'enter') {
-          const trimmed = inputBuffer.trim();
-          inputBuffer = '';
-          if (trimmed) {
-            const t0 = Date.now();
-            lastInputCommand = trimmed;
-            await handleCommand(trimmed);
-            lastCommandMs = Date.now() - t0;
-          }
-          renderDashboard();
-          return;
-        }
-        // Instant single-key keypad triggers when buffer is empty
-        if (!inputBuffer && str && ['0', '1', '2', '3', '4', '5'].includes(str)) {
+  if (rawKeypadActive) {
+    process.stdin.resume();
+    process.stdin.on('keypress', async (str: string, key: readline.Key) => {
+      if (key?.ctrl && key.name === 'c') {
+        process.stdin.setRawMode?.(false);
+        process.exit(0);
+      }
+      if (key?.name === 'escape') {
+        inputBuffer = '';
+        renderDashboard();
+        return;
+      }
+      if (key?.name === 'backspace') {
+        inputBuffer = inputBuffer.slice(0, -1);
+        renderDashboard();
+        return;
+      }
+      if (key?.name === 'return' || key?.name === 'enter') {
+        const trimmed = inputBuffer.trim();
+        inputBuffer = '';
+        if (trimmed) {
           const t0 = Date.now();
-          lastInputCommand = `[key ${str}]`;
-          await handleCommand(str);
+          lastInputCommand = trimmed;
+          await handleCommand(trimmed);
           lastCommandMs = Date.now() - t0;
-          renderDashboard();
-          return;
         }
-        if (str && !key?.ctrl && !key?.meta) {
-          inputBuffer += str;
-          renderDashboard();
-        }
-      });
-    } else {
-      rlInstance = readline.createInterface({
-        input: process.stdin,
-        output: process.stdout,
-        prompt: `${ANSI.red}${ANSI.bold}choice>${ANSI.reset} `,
-      });
-
-      rlInstance.on('line', async (line: string) => {
+        renderDashboard();
+        return;
+      }
+      // Instant single-key keypad triggers when buffer is empty
+      if (!inputBuffer && str && ['0', '1', '2', '3', '4', '5'].includes(str)) {
         const t0 = Date.now();
-        const trimmed = line.trim();
-        if (!trimmed) {
-          renderDashboard();
-          return;
-        }
-        lastInputCommand = trimmed;
-        await handleCommand(trimmed);
+        lastInputCommand = `[key ${str}]`;
+        await handleCommand(str);
         lastCommandMs = Date.now() - t0;
         renderDashboard();
-      });
-    }
+        return;
+      }
+      if (str && !key?.ctrl && !key?.meta) {
+        inputBuffer += str;
+        renderDashboard();
+      }
+    });
+  } else {
+    rlInstance = readline.createInterface({
+      input: process.stdin,
+      output: process.stdout,
+      prompt: `${ANSI.red}${ANSI.bold}choice>${ANSI.reset} `,
+    });
+
+    rlInstance.on('line', async (line: string) => {
+      const t0 = Date.now();
+      const trimmed = line.trim();
+      if (!trimmed) {
+        renderDashboard();
+        return;
+      }
+      lastInputCommand = trimmed;
+      await handleCommand(trimmed);
+      lastCommandMs = Date.now() - t0;
+      renderDashboard();
+    });
   }
 
   renderDashboard();
