@@ -1,5 +1,6 @@
 import { EventEmitter } from 'events';
 import { getSocketServer } from '../../socketServer.js';
+import { startReadyWatchdog } from './engineReadyWatchdog.js';
 import {
   LINDA_SESSIONS_PATH,
   LINDA_HEADLESS,
@@ -74,6 +75,15 @@ export class WhatsAppEngine extends EventEmitter implements WhatsAppEngineCore {
     setWhatsAppEngine(this.config.clientId, this);
   }
 
+  private markReady(): void {
+    this.qrCode = null;
+    this.reconnectAttempts = 0;
+    this.clientAuthenticated = true;
+    this.sessionActive = true;
+    this.setStatus(WhatsAppEngineStatus.READY);
+    this.emit('ready');
+  }
+
   public isHardwareConnected(): boolean {
     return (
       this.clientAuthenticated && this.sessionActive && this.status === WhatsAppEngineStatus.READY
@@ -136,32 +146,19 @@ export class WhatsAppEngine extends EventEmitter implements WhatsAppEngineCore {
       this.clientAuthenticated = true;
       this.emit('authenticated');
 
-      // Watchdog: if whatsapp-web.js misses 'ready' after 'authenticated', promote to READY once connected
-      setTimeout(async () => {
-        if (this.sessionActive || !this.client) return;
-        try {
-          const state = await this.client.getState?.().catch(() => null);
-          if (this.client.info?.wid || state === 'CONNECTED') {
-            this.sessionActive = true;
-            this.qrCode = null;
-            this.setStatus(WhatsAppEngineStatus.READY);
-            this.emit('ready');
-            console.log(`[WhatsAppEngine:${this.config.clientId}] Watchdog promoted AUTHENTICATING -> READY`);
-          }
-        } catch {
-          // ignore watchdog probe errors
-        }
-      }, 10_000).unref();
+      startReadyWatchdog({
+        clientId: this.config.clientId,
+        getClient: () => this.client,
+        isReady: () => this.sessionActive,
+        onReady: () => this.markReady(),
+        onTimeout: () => { if (this.config.autoRestart) void this.attemptReconnect(); },
+      });
     });
 
     client.on('ready', () => {
+      if (this.sessionActive) return;
       console.log(`[WhatsAppEngine:${this.config.clientId}] STATE 3: Client ready and physical hardware link active`);
-      this.qrCode = null;
-      this.reconnectAttempts = 0;
-      this.clientAuthenticated = true;
-      this.sessionActive = true;
-      this.setStatus(WhatsAppEngineStatus.READY);
-      this.emit('ready');
+      this.markReady();
     });
 
     client.on('auth_failure', (msg: string) => {
