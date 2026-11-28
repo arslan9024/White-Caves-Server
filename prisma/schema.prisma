@@ -2394,6 +2394,13 @@ model TaskNodeRecord {
   results            String
   meritXP            Int                      @default(34)
   statutoryAuthority String?
+  actorType          String                   @default("AI_EMPLOYEE") // AI_EMPLOYEE | HUMAN_EMPLOYEE
+  actorCode          String?                  // e.g. SUP-02-6-01-1 or EMP-001
+  actorName          String?
+  departmentCode     String?                  // DMS Canonical Department (DEPT-01..DEPT-12)
+  divisionCode       String?                  // Canonical 108 Division (DIV-01-1..DIV-12-9)
+  supervisorCode     String?                  // Single accountable AI Supervisor (SUP-XX-Y-ZZ-W)
+  supervisorChain    String?                  // Bhakti chain: MD-01 -> WC-COO-01 -> DIR -> MGR -> AMGR -> SUP
   userId             String?                  @db.ObjectId
   user               User?                    @relation("UserAssignedTasks", fields: [userId], references: [id])
   propertyId         String?                  @db.ObjectId
@@ -2409,6 +2416,8 @@ model TaskNodeRecord {
   @@index([userId])
   @@index([propertyId])
   @@index([contractId])
+  @@index([departmentCode])
+  @@index([supervisorCode])
 }
 
 // ─── AEGIS V5.0: GAMIFIED MERIT LEADERBOARD XP & ROLE ASSIGNMENT JOIN TABLES ──

@@ -27,6 +27,7 @@ import nadiaRoutes from './nadia.js';
 import lindaRoutes from './linda.js';
 import lindaProxyRoutes from './linda-proxy.js';
 import sanctumRoutes from './sanctum.js';
+import aiAgentsRoutes from './aiAgents.js';
 import daisyRoutes from './daisy.js';
 import leasingFormulaRoutes from './leasingFormula.js';
 import leasingWorkflowsRoutes from './leasingWorkflows.js';
@@ -310,6 +311,9 @@ export function mountDomainRoutes(app: Express): void {
   // AICC-Sanctum Agent Hierarchy API — Zoe COO, 12 Directors, 108 Managers
   // Delegation engine + bridge endpoints for Linda → Mary / Daisy / Henry
   app.use('/api/sanctum', authMiddleware, sanctumRoutes);
+
+  // AI Zoe Department Agent Dispatch & Telemetry (LindaWhatsAppAgent, DaisyLeasingAgent)
+  app.use('/api/ai/agents', authMiddleware, aiAgentsRoutes);
 
   // Daisy Residential Leasing, AI Listing Web Crawler, Ejari Drafts, Receipts & 90-Day Renewals
   app.use('/api/daisy', authMiddleware, daisyRoutes);
