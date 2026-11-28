@@ -5,7 +5,12 @@ import {
 import { lindaMultiSimPool } from "./LindaMultiSimPoolService.js";
 import type { WhatsAppEngine } from "./engine/whatsAppEngineCore.js";
 
-const MD_AUTHORIZED_DIGITS = new Set(["971589969886"]);
+const MD_AUTHORIZED_DIGITS = new Set([
+  "971589969886",
+  "971503869886",
+  "971505110636",
+  "971553633595",
+]);
 
 function normalizeDigits(phone: string): string {
   const digits = phone.replace(/[:@].*/, "").replace(/\D/g, "");
