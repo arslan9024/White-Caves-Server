@@ -71,6 +71,23 @@ export async function handleMdWhatsAppCommand(
     reply = `*AI ZOE (COO)* received: "${zoeMsg}"\n\n${getAgentOutputSnapshot("zoe")}\n\n_Reply 0 for keypad_`;
   } else if (lower === "1" || lower === "status") {
     reply = `${getServerStatusSnapshot()}\n\n_Reply 0 for keypad_`;
+  } else if (lower === "health" || lower === "mem" || lower === "uptime") {
+    const mem = process.memoryUsage();
+    const upSec = Math.floor(process.uptime());
+    reply = `*SERVER HEALTH*\nUptime: ${Math.floor(upSec / 3600)}h ${Math.floor((upSec % 3600) / 60)}m ${upSec % 60}s\nRSS: ${Math.round(mem.rss / 1024 / 1024)}MB | Heap: ${Math.round(mem.heapUsed / 1024 / 1024)}MB\nNode: ${process.version} | PID: ${process.pid}\n\n_Reply 0 for keypad_`;
+  } else if (lower === "sims" || lower === "sim") {
+    const accs = lindaMultiSimPool.listPoolAccounts();
+    reply = `*SIM POOL (${accs.filter(a => a.isConnected).length}/${accs.length} online)*\n${accs.map(a => `${a.isConnected ? '●' : '○'} ${a.id} (+${a.phoneNumber}) [${a.engineStatus}]`).join('\n')}\n\n_Reply 0 for keypad_`;
+  } else if (lower === "ports") {
+    reply = `*MONOREPO PORTS*\nServer: :5001 | CRM: :3000 | Web: :3001 | Aegis: :3333 | Mobile: :8081\n\n_Reply 0 for keypad_`;
+  } else if (lower === "agents") {
+    reply = [
+      getAgentOutputSnapshot("zoe"),
+      getAgentOutputSnapshot("linda"),
+      getAgentOutputSnapshot("henry"),
+      getAgentOutputSnapshot("daisy"),
+      getAgentOutputSnapshot("diana"),
+    ].join('\n\n') + '\n\n_Reply 0 for keypad_';
   } else if (lower === "2") {
     reply = `${getAgentOutputSnapshot("linda")}\n\n_Reply 0 for keypad_`;
   } else if (lower === "3") {
