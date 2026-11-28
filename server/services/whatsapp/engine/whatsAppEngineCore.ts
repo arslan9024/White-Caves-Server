@@ -135,6 +135,23 @@ export class WhatsAppEngine extends EventEmitter implements WhatsAppEngineCore {
       console.log(`[WhatsAppEngine:${this.config.clientId}] STATE 2: Physical device authenticated successfully`);
       this.clientAuthenticated = true;
       this.emit('authenticated');
+
+      // Watchdog: if whatsapp-web.js misses 'ready' after 'authenticated', promote to READY once connected
+      setTimeout(async () => {
+        if (this.sessionActive || !this.client) return;
+        try {
+          const state = await this.client.getState?.().catch(() => null);
+          if (this.client.info?.wid || state === 'CONNECTED') {
+            this.sessionActive = true;
+            this.qrCode = null;
+            this.setStatus(WhatsAppEngineStatus.READY);
+            this.emit('ready');
+            console.log(`[WhatsAppEngine:${this.config.clientId}] Watchdog promoted AUTHENTICATING -> READY`);
+          }
+        } catch {
+          // ignore watchdog probe errors
+        }
+      }, 10_000).unref();
     });
 
     client.on('ready', () => {
