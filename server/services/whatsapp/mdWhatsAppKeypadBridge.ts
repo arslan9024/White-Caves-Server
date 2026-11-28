@@ -1,4 +1,5 @@
 import { getAgentOutputSnapshot, getServerStatusSnapshot } from '../../scripts/lindaInteractiveTerminal.js';
+import { lindaMultiSimPool } from './LindaMultiSimPoolService.js';
 import type { WhatsAppEngine } from './engine/whatsAppEngineCore.js';
 
 const MD_AUTHORIZED_DIGITS = new Set(['971589969886']);
@@ -20,6 +21,7 @@ function buildKeypadMenu(): string {
     '[4] AI Henry Output',
     '[5] AI Daisy Output',
     '[6] AI Diana Output',
+    '[7] Pair Master (pair <phone>)',
     '[0] Menu / Help',
     '',
     '_Chat:_ `@zoe <msg>`, `@linda <msg>`, `@henry <msg>`, `@daisy <msg>`, `@diana <msg>`',
@@ -59,6 +61,22 @@ export async function handleMdWhatsAppCommand(
     reply = `${getAgentOutputSnapshot('daisy')}\n\n_Reply 0 for keypad_`;
   } else if (lower === '6') {
     reply = `${getAgentOutputSnapshot('diana')}\n\n_Reply 0 for keypad_`;
+  } else if (lower === '7') {
+    reply = `Send: *pair <phone>* (e.g. \`pair 0589969886\`) to get an 8-char pairing code.\n\n_Reply 0 for keypad_`;
+  } else if (lower.startsWith('pair ')) {
+    const rawTarget = trimmed.slice(5).trim();
+    const targetDigits = normalizeDigits(rawTarget);
+    if (!targetDigits || targetDigits.length < 9) {
+      reply = `Invalid phone number "${rawTarget}". Example: \`pair 0589969886\``;
+    } else {
+      try {
+        const res = await lindaMultiSimPool.requestAccountPairingCode(targetDigits);
+        console.log(`[PAIR] MD requested pairing code for +${targetDigits}: ${res.pairingCode}`);
+        reply = `*PAIRING CODE (+${targetDigits})*\nCode: *${res.pairingCode}*\nEnter in WhatsApp → Linked Devices → Link with phone number.\n\n_Reply 0 for keypad_`;
+      } catch (err) {
+        reply = `Pairing failed for +${targetDigits}: ${err instanceof Error ? err.message : String(err)}`;
+      }
+    }
   } else {
     const agentMatch = trimmed.match(/^@(linda|zoe|henry|daisy|diana)\s+([\s\S]+)$/i);
     if (agentMatch) {
