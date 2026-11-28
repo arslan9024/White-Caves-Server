@@ -15,7 +15,7 @@ const ANSI = {
   yellow: '\x1b[33m',
   cyan: '\x1b[36m',
   magenta: '\x1b[35m',
-  clearScreen: '\x1b[2J\x1b[H',     // Reposition cursor without clearing scrollback/flickering
+  clearScreen: '\x1b[2J\x1b[3J\x1b[H', // Clear screen, clear scrollback buffer, home cursor (Windows & POSIX safe)
 };
 
 type OutputLevel = 'INFO' | 'OK' | 'WARN' | 'ERR' | 'PAIR' | 'SENT' | 'SYS';
@@ -154,8 +154,10 @@ function scheduleRender(): void {
   if (renderTimer) return;
   renderTimer = setTimeout(() => {
     renderTimer = null;
-    renderDashboard();
-  }, 150);
+    if (!inputBuffer && pairingSelectMode === 'none') {
+      renderDashboard();
+    }
+  }, 350);
 }
 
 function interceptConsoleLogs(): void {
