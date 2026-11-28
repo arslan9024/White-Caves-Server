@@ -49,6 +49,7 @@ const agentFeeds: Record<AgentName, UniqueOutputEntry[]> = {
   zoe: [],
 };
 let activeAgent: AgentName = 'linda';
+let pairingSelectMode = false;
 let suppressedDuplicates = 0;
 let lastInputCommand = 'None';
 let lastCommandMs = 0;
@@ -198,7 +199,14 @@ function renderDashboard(): void {
   const uptime = formatUptime(Date.now() - startedAt);
   const liveDot = tickCount % 2 === 0 ? `${ANSI.green}● LIVE${ANSI.reset}` : `${ANSI.dim}○ LIVE${ANSI.reset}`;
 
-  const leftCol: string[] = [
+  const leftCol: string[] = pairingSelectMode ? [
+    `${ANSI.yellow}${ANSI.bold}▲ SELECT ACCOUNT TO PAIR${ANSI.reset}`,
+    `${ANSI.cyan}[1]${ANSI.reset} Primary Master (+971505760056)`,
+    ...accounts.slice(1).map((a, idx) => `${ANSI.cyan}[${idx + 2}]${ANSI.reset} ${a.id.slice(0, 6)} (+${a.phoneNumber.replace(/\D/g, '')})`),
+    `${ANSI.cyan}[0]${ANSI.reset} Cancel / Back`,
+    `${ANSI.slate}${'─'.repeat(leftW)}${ANSI.reset}`,
+    `${ANSI.dim}Enter 1-10 to pair, 0 to cancel${ANSI.reset}`,
+  ] : [
     `${ANSI.red}${ANSI.bold}▲ INPUT SIDE${ANSI.reset} ${ANSI.dim}(${lastCommandMs}ms)${ANSI.reset}`,
     `${ANSI.cyan}[1]${ANSI.reset} Pair   ${ANSI.cyan}[4]${ANSI.reset} Clear`,
     `${ANSI.cyan}[2]${ANSI.reset} Status ${ANSI.cyan}[5]${ANSI.reset} Help`,
@@ -211,7 +219,9 @@ function renderDashboard(): void {
     `${ANSI.slate}${'─'.repeat(leftW)}${ANSI.reset}`,
     `${ANSI.white}SIMs:${ANSI.reset} ${accounts.map(a => `${a.isConnected ? ANSI.green + '●' : ANSI.yellow + '○'}${ANSI.reset}${a.id.slice(0, 4)}`).join(' ')}`,
   ];
-  if (rawKeypadActive) {
+  if (pairingSelectMode) {
+    // Already has instructions in leftCol
+  } else if (rawKeypadActive) {
     leftCol.push(`${ANSI.red}${ANSI.bold}input>${ANSI.reset} ${ANSI.white}${inputBuffer}${ANSI.reset}`);
   } else {
     leftCol.push(`${ANSI.dim}1-6/0 or cmd + Enter${ANSI.reset}`);
@@ -275,6 +285,32 @@ function renderDashboard(): void {
 }
 
 async function handleCommand(trimmed: string): Promise<void> {
+  const accounts = lindaMultiSimPool.listPoolAccounts();
+
+  if (pairingSelectMode) {
+    if (trimmed === '0' || trimmed.toLowerCase() === 'cancel' || trimmed.toLowerCase() === 'q') {
+      pairingSelectMode = false;
+      pushUniqueOutput('INFO', 'Pairing selection cancelled.');
+      return;
+    }
+    const selectedIdx = parseInt(trimmed, 10);
+    if (!Number.isNaN(selectedIdx) && selectedIdx >= 1 && selectedIdx <= accounts.length) {
+      pairingSelectMode = false;
+      const targetAcc = accounts[selectedIdx - 1];
+      const targetPhone = targetAcc.phoneNumber.replace(/\D/g, '');
+      pushUniqueOutput('INFO', `Requesting pairing code for [${targetAcc.id}] +${targetPhone}...`);
+      try {
+        const result = await lindaMultiSimPool.requestAccountPairingCode(targetPhone);
+        pushUniqueOutput('PAIR', `🔑 [${targetAcc.id}] +${targetPhone} PAIRING CODE: ${result.pairingCode}`);
+      } catch (err) {
+        pushUniqueOutput('ERR', `Pairing failed for +${targetPhone}: ${err instanceof Error ? err.message : String(err)}`);
+      }
+      return;
+    }
+    pushUniqueOutput('WARN', `Invalid selection "${trimmed}". Choose 1-${accounts.length} or 0 to cancel.`);
+    return;
+  }
+
   if (/^campaign\b/i.test(trimmed)) {
     try {
       const { handleCampaignCommand } = await import('../services/whatsapp/mdCampaignCommands.js');
@@ -287,7 +323,7 @@ async function handleCommand(trimmed: string): Promise<void> {
   }
   const primary = lindaMultiSimPool.getPrimaryAccount();
   const [rawCmd, ...rest] = trimmed.split(/\s+/);
-  const cmd = rawCmd === '1' ? 'p'
+  const cmd = rawCmd === '1' ? 'pair_menu'
     : rawCmd === '2' ? 'status'
     : rawCmd === '3' ? 'health'
     : rawCmd === '4' ? 'clear'
@@ -296,7 +332,10 @@ async function handleCommand(trimmed: string): Promise<void> {
     : rawCmd === '0' ? 'q'
     : rawCmd;
 
-  if (cmd === 'cycle_agent') {
+  if (cmd === 'pair_menu') {
+    pairingSelectMode = true;
+    pushUniqueOutput('INFO', `Select SIM line to pair (1: Primary Master, 2-${accounts.length}: Hunter SIMs, 0: Cancel).`);
+  } else if (cmd === 'cycle_agent') {
     const nextIdx = (AGENTS.indexOf(activeAgent) + 1) % AGENTS.length;
     activeAgent = AGENTS[nextIdx];
   } else if (cmd === 'a' && rest[0]) {
@@ -437,8 +476,8 @@ export function attachLindaInteractiveTerminal(): void {
         renderDashboard();
         return;
       }
-      // Instant single-key keypad triggers when buffer is empty
-      if (!inputBuffer && str && ['0', '1', '2', '3', '4', '5', '6'].includes(str)) {
+      // Instant single-key keypad triggers when buffer is empty (skip in pairing select mode so user can type 10)
+      if (!pairingSelectMode && !inputBuffer && str && ['0', '1', '2', '3', '4', '5', '6'].includes(str)) {
         const t0 = Date.now();
         lastInputCommand = `[key ${str}]`;
         await handleCommand(str);
