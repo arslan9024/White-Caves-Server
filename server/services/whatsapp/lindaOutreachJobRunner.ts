@@ -14,6 +14,7 @@ import { getSocketServer } from '../socketServer.js';
 import { lindaMultiSimPool, normalizePhoneDigits } from './LindaMultiSimPoolService.js';
 import { WhatsAppEngineStatus } from './WhatsAppEngine.js';
 import { PRIMARY_MASTER_PHONE } from './leasingSimOutreachFormula.js';
+import { isIsolatedWorkerMode, ensureLindaWorkerRunning } from './worker/lindaWorkerBridge.js';
 import {
   buildCompliantDh2BroadcastMessage,
   syncDh2PmsAndTenancyContacts,
@@ -205,7 +206,9 @@ export async function runPrimaryMasterKeepAliveTick(): Promise<boolean> {
       acc => normalizePhoneDigits(acc.phoneNumber) === normalizePhoneDigits(PRIMARY_MASTER_PHONE)
     );
     if (!shouldRecoverPrimaryMaster(master)) return false;
-    cleanStaleChromiumLocks(PRIMARY_MASTER_PHONE);
+    if (!isIsolatedWorkerMode()) {
+      cleanStaleChromiumLocks(PRIMARY_MASTER_PHONE);
+    }
     log.info(`24/7 Keep-Alive: Reconnecting Primary Master (${PRIMARY_MASTER_PHONE})...`);
     await lindaMultiSimPool.connectAccount(PRIMARY_MASTER_PHONE);
     return true;
@@ -244,30 +247,37 @@ export function startLindaPairedSessionAutoReconnect(): void {
   const staggerMs = parsePositiveDelayMs(process.env.ACCOUNT_SEQUENTIAL_DELAY, 5000, 2000);
   if (!bootReconnectPromise) {
     bootReconnectPromise = (async () => {
+      if (isIsolatedWorkerMode()) {
+        await ensureLindaWorkerRunning().catch(err => {
+          log.warn('Isolated WhatsApp worker startup warning:', err instanceof Error ? err.message : err);
+        });
+      }
       for (let i = 0; i < candidates.length; i++) {
         const acc = candidates[i];
         if (i > 0) await new Promise(resolve => setTimeout(resolve, staggerMs));
         try {
-          cleanStaleChromiumLocks(acc.phoneNumber);
+          if (!isIsolatedWorkerMode()) cleanStaleChromiumLocks(acc.phoneNumber);
           log.info(`Auto-reconnecting saved Linda WhatsApp session ${acc.phoneNumber} (${acc.displayName})...`);
           const isPrimary = normalizePhoneDigits(acc.phoneNumber) === normalizePhoneDigits(PRIMARY_MASTER_PHONE);
           if (isPrimary) {
             const primaryEngine = lindaMultiSimPool.getEngineForAccount(acc);
-            primaryEngine.once('qr', () => {
-              setTimeout(() => {
-                if (primaryEngine.isConnected()) return;
-                void lindaMultiSimPool
-                  .requestAccountPairingCode(acc.phoneNumber)
-                  .then(pairing => {
-                    if (pairing?.pairingCode) {
-                      log.info(`🔑 PRIMARY MASTER PAIRING CODE (${acc.phoneNumber}): ${pairing.pairingCode} — Enter in WhatsApp → Linked Devices → Link with phone number`);
-                    }
-                  })
-                  .catch(err => {
-                    log.warn(`Primary Master auto-pairing code failed (${acc.phoneNumber}): ${err instanceof Error ? err.message : String(err)}. Press [1] in Terminal Dashboard to retry.`);
-                  });
-              }, 1500).unref?.();
-            });
+            if (!primaryEngine.isConnected()) {
+              primaryEngine.once('qr', () => {
+                setTimeout(() => {
+                  if (primaryEngine.isConnected()) return;
+                  void lindaMultiSimPool
+                    .requestAccountPairingCode(acc.phoneNumber)
+                    .then(pairing => {
+                      if (pairing?.pairingCode) {
+                        log.info(`🔑 PRIMARY MASTER PAIRING CODE (${acc.phoneNumber}): ${pairing.pairingCode} — Enter in WhatsApp → Linked Devices → Link with phone number`);
+                      }
+                    })
+                    .catch(err => {
+                      log.warn(`Primary Master auto-pairing code failed (${acc.phoneNumber}): ${err instanceof Error ? err.message : String(err)}. Press [1] in Terminal Dashboard to retry.`);
+                    });
+                }, 1500).unref?.();
+              });
+            }
           }
           await lindaMultiSimPool.connectAccount(acc.phoneNumber);
         } catch (err) {

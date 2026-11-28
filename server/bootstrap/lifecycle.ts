@@ -14,6 +14,8 @@ import { schedulerService } from '../services/SchedulerService.js';
 import { startLindaCampaignScheduler } from '../services/whatsapp/lindaCampaignService.js';
 import { startLeasingQueueScheduler } from '../services/leasing/leasingQueueWorkerService.js';
 import { startLindaPairedSessionAutoReconnect } from '../services/whatsapp/lindaOutreachJobRunner.js';
+import { shutdownAllWhatsAppEngines } from '../services/whatsapp/engine/whatsAppEngineRegistry.js';
+import { detachLindaWorkerBridge, isIsolatedWorkerMode } from '../services/whatsapp/worker/lindaWorkerBridge.js';
 import { RealtimeService } from '../websocket/realtimeService.js';
 import type { ServerRuntime } from './runtime.js';
 import { PREFERRED_PORT, parsePort, listenWithPortFallback } from './listener.js';
@@ -166,7 +168,10 @@ export function startApplication(app: Express, runtime: ServerRuntime): void {
   });
 
   // Graceful shutdown
+  let shuttingDown = false;
   const gracefulShutdown = async (signal: string) => {
+    if (shuttingDown) return;
+    shuttingDown = true;
     logger.info(`${signal} received — shutting down gracefully`);
     // 1. Stop accepting new connections
     if (runtime.realtimeService) {
@@ -179,12 +184,19 @@ export function startApplication(app: Express, runtime: ServerRuntime): void {
         logger.info('HTTP server closed — no new connections');
       });
     }
-    // 2. Allow in-flight requests to finish.
+    // 2. Preserve isolated WhatsApp session daemon across nodemon restarts, or
+    // cleanly flush Chromium IndexedDB/LocalStorage via client.destroy() in-process.
+    if (isIsolatedWorkerMode()) {
+      detachLindaWorkerBridge();
+    } else {
+      await shutdownAllWhatsAppEngines(8_000);
+    }
+    // 3. Allow in-flight requests to finish.
     // In production keep a longer drain window; in dev/test keep shutdown fast
     // so nodemon restarts do not race and re-bind errors (EADDRINUSE) are avoided.
     const shutdownDrainMs = IS_PRODUCTION ? 10_000 : 500;
     await new Promise(resolve => setTimeout(resolve, shutdownDrainMs));
-    // 3. Disconnect database
+    // 4. Disconnect database
     await prisma.$disconnect();
     logger.info('Database disconnected — exiting');
     process.exit(0);

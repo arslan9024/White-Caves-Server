@@ -25,6 +25,12 @@ import {
   initializeWhatsAppClient,
   calculateReconnectDelay,
 } from './whatsAppLifecycleManager.js';
+import {
+  callWorkerRpc,
+  isIsolatedWorkerMode,
+  registerWorkerEngineProxy,
+  type WorkerEngineSnapshot,
+} from '../worker/lindaWorkerBridge.js';
 
 export interface WhatsAppEngineCore extends EventEmitter {
   isHardwareConnected(): boolean;
@@ -59,6 +65,8 @@ export class WhatsAppEngine extends EventEmitter implements WhatsAppEngineCore {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private client: any = null;
   private initPromise: Promise<void> | null = null;
+  private watchdogStop: (() => void) | null = null;
+  private isShuttingDown = false;
 
   constructor(config: WhatsAppEngineConfig) {
     super();
@@ -73,9 +81,48 @@ export class WhatsAppEngine extends EventEmitter implements WhatsAppEngineCore {
       pairWithPhoneNumber: config.pairWithPhoneNumber,
     };
     setWhatsAppEngine(this.config.clientId, this);
+    if (isIsolatedWorkerMode()) {
+      registerWorkerEngineProxy(this.config.clientId, {
+        onSnapshot: snap => this.applyWorkerSnapshot(snap),
+        onEvent: (event, payload) => this.handleWorkerEvent(event, payload),
+      });
+    }
+  }
+
+  public getClientId(): string {
+    return this.config.clientId;
+  }
+
+  private stopWatchdog(): void {
+    this.watchdogStop?.();
+    this.watchdogStop = null;
+  }
+
+  private applyWorkerSnapshot(snap: WorkerEngineSnapshot): void {
+    this.qrCode = snap.qrCode;
+    this.sessionActive = snap.sessionActive;
+    this.clientAuthenticated = snap.clientAuthenticated;
+    this.messagesSent = snap.messagesSent;
+    this.messagesReceived = snap.messagesReceived;
+    this.reconnectAttempts = snap.reconnectAttempts;
+    this.setStatus(snap.status);
+  }
+
+  private handleWorkerEvent(event: string, payload: unknown): void {
+    if (event === 'status_changed') return;
+    if (event === 'message' && payload && typeof payload === 'object') {
+      const wrapped = payload as WhatsAppMessage;
+      if (this.messageQueue.length >= 500) this.messageQueue.shift();
+      this.messageQueue.push(wrapped);
+      this.emit('message', wrapped);
+      getSocketServer()?.emitLindaMessage(wrapped);
+      return;
+    }
+    this.emit(event, payload);
   }
 
   private markReady(): void {
+    this.stopWatchdog();
     this.qrCode = null;
     this.reconnectAttempts = 0;
     this.clientAuthenticated = true;
@@ -94,8 +141,26 @@ export class WhatsAppEngine extends EventEmitter implements WhatsAppEngineCore {
     if (this.sessionActive && this.clientAuthenticated) return;
     if (this.initPromise) return this.initPromise;
 
+    this.isShuttingDown = false;
+    if (isIsolatedWorkerMode()) {
+      this.initPromise = (async () => {
+        const snap = await callWorkerRpc<WorkerEngineSnapshot>('initialize', this.config.clientId, {
+          config: this.config,
+        });
+        if (snap) this.applyWorkerSnapshot(snap);
+      })().finally(() => {
+        this.initPromise = null;
+      });
+      return this.initPromise;
+    }
+
     this.initPromise = (async () => {
       try {
+        this.stopWatchdog();
+        if (this.client) {
+          await this.client.destroy().catch(() => {});
+          this.client = null;
+        }
         this.clientAuthenticated = false;
         this.client = await initializeWhatsAppClient(
           this,
@@ -111,7 +176,7 @@ export class WhatsAppEngine extends EventEmitter implements WhatsAppEngineCore {
         this.setStatus(WhatsAppEngineStatus.ERROR);
         console.error(`[WhatsAppEngine] Initialization failed for ${this.config.clientId}:`, error);
         this.emit('error', error);
-        if (this.config.autoRestart && this.reconnectAttempts < this.config.maxReconnectAttempts) {
+        if (this.config.autoRestart && !this.isShuttingDown && this.reconnectAttempts < this.config.maxReconnectAttempts) {
           void this.attemptReconnect();
         }
         throw error;
@@ -146,12 +211,15 @@ export class WhatsAppEngine extends EventEmitter implements WhatsAppEngineCore {
       this.clientAuthenticated = true;
       this.emit('authenticated');
 
-      startReadyWatchdog({
+      this.stopWatchdog();
+      this.watchdogStop = startReadyWatchdog({
         clientId: this.config.clientId,
         getClient: () => this.client,
         isReady: () => this.sessionActive,
         onReady: () => this.markReady(),
-        onTimeout: () => { if (this.config.autoRestart) void this.attemptReconnect(); },
+        onTimeout: () => {
+          if (this.config.autoRestart && !this.isShuttingDown) void this.attemptReconnect();
+        },
       });
     });
 
@@ -163,22 +231,24 @@ export class WhatsAppEngine extends EventEmitter implements WhatsAppEngineCore {
 
     client.on('auth_failure', (msg: string) => {
       console.error(`[WhatsAppEngine:${this.config.clientId}] EXCEPTION: Auth failure:`, msg);
+      this.stopWatchdog();
       this.clientAuthenticated = false;
       this.sessionActive = false;
       this.qrCode = null;
       this.setStatus(WhatsAppEngineStatus.ERROR);
       this.emit('auth_failure', msg);
-      if (this.config.autoRestart) this.attemptReconnect();
+      if (this.config.autoRestart && !this.isShuttingDown) this.attemptReconnect();
     });
 
     client.on('disconnected', (reason: string) => {
       console.log(`[WhatsAppEngine:${this.config.clientId}] EXCEPTION: Disconnected from hardware:`, reason);
+      this.stopWatchdog();
       this.clientAuthenticated = false;
       this.sessionActive = false;
       this.qrCode = null;
       this.setStatus(WhatsAppEngineStatus.DISCONNECTED);
       this.emit('disconnected', reason);
-      if (this.config.autoRestart) this.attemptReconnect();
+      if (this.config.autoRestart && !this.isShuttingDown) this.attemptReconnect();
     });
 
     client.on('message', async (message: unknown) => {
@@ -214,6 +284,12 @@ export class WhatsAppEngine extends EventEmitter implements WhatsAppEngineCore {
     if (this.sessionActive && this.clientAuthenticated) {
       throw new Error(`WhatsApp account ${this.config.clientId} is already connected — no pairing needed.`);
     }
+    if (isIsolatedWorkerMode()) {
+      return await callWorkerRpc<string>('requestPairingCode', this.config.clientId, {
+        config: this.config,
+        phoneNumber,
+      }, 45_000);
+    }
     if (!this.client && !this.initPromise) {
       void this.initialize().catch(() => {});
     }
@@ -239,6 +315,18 @@ export class WhatsAppEngine extends EventEmitter implements WhatsAppEngineCore {
   }
 
   public async sendMessage(phoneNumber: string, message: string): Promise<string> {
+    if (isIsolatedWorkerMode()) {
+      if (!this.sessionActive) {
+        throw new Error(`WhatsAppEngine(${this.config.clientId}) session not active — call initialize() first`);
+      }
+      const messageId = await callWorkerRpc<string>('sendMessage', this.config.clientId, {
+        phoneNumber,
+        message,
+      }, 30_000);
+      this.messagesSent += 1;
+      this.emit('message_sent', { to: phoneNumber, message, messageId, timestamp: new Date() });
+      return messageId;
+    }
     if (!this.sessionActive || !this.client) {
       throw new Error(`WhatsAppEngine(${this.config.clientId}) session not active — call initialize() first`);
     }
@@ -276,6 +364,10 @@ export class WhatsAppEngine extends EventEmitter implements WhatsAppEngineCore {
   }
 
   public async getConversations(): Promise<WhatsAppChatSummary[]> {
+    if (isIsolatedWorkerMode()) {
+      if (!this.sessionActive) return [];
+      return await callWorkerRpc<WhatsAppChatSummary[]>('getConversations', this.config.clientId, {}, 30_000);
+    }
     if (!this.sessionActive || !this.client) return [];
     const chats = await this.client.getChats();
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -288,6 +380,15 @@ export class WhatsAppEngine extends EventEmitter implements WhatsAppEngineCore {
   }
 
   public async getConversationHistory(phoneNumber: string, limit = 50): Promise<WhatsAppMessage[]> {
+    if (isIsolatedWorkerMode()) {
+      if (!this.sessionActive) return [];
+      return await callWorkerRpc<WhatsAppMessage[]>(
+        'getConversationHistory',
+        this.config.clientId,
+        { phoneNumber, limit },
+        30_000
+      );
+    }
     if (!this.sessionActive || !this.client) return [];
     const chatId = formatChatId(phoneNumber);
     const chat = await this.client.getChatById(chatId);
@@ -300,20 +401,40 @@ export class WhatsAppEngine extends EventEmitter implements WhatsAppEngineCore {
   }
 
   public async disconnect(): Promise<void> {
+    this.isShuttingDown = true;
+    this.stopWatchdog();
     if (this.reconnectTimer) {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;
     }
+    if (isIsolatedWorkerMode()) {
+      const snap = await callWorkerRpc<WorkerEngineSnapshot>('disconnect', this.config.clientId, {}, 15_000).catch(
+        () => null
+      );
+      if (snap) this.applyWorkerSnapshot(snap);
+      else {
+        this.setStatus(WhatsAppEngineStatus.DISCONNECTED);
+        this.sessionActive = false;
+        this.clientAuthenticated = false;
+        this.qrCode = null;
+      }
+      return;
+    }
     try {
       if (this.client) {
-        await this.client.destroy();
+        const activeClient = this.client;
         this.client = null;
+        await Promise.race([
+          activeClient.destroy(),
+          new Promise<void>(resolve => setTimeout(resolve, 8_000)),
+        ]);
       }
     } catch (err) {
       console.warn(`[WhatsAppEngine:${this.config.clientId}] Error during destroy:`, err);
     }
     this.setStatus(WhatsAppEngineStatus.DISCONNECTED);
     this.sessionActive = false;
+    this.clientAuthenticated = false;
     this.qrCode = null;
     this.emit('disconnected', 'manual');
     console.log(`[WhatsAppEngine:${this.config.clientId}] Client disconnected`);
@@ -364,6 +485,9 @@ export class WhatsAppEngine extends EventEmitter implements WhatsAppEngineCore {
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 
   private async attemptReconnect(): Promise<void> {
+    if (this.isShuttingDown || isIsolatedWorkerMode()) {
+      return;
+    }
     if (this.status === WhatsAppEngineStatus.RECONNECTING || this.reconnectTimer) {
       return;
     }
@@ -371,11 +495,13 @@ export class WhatsAppEngine extends EventEmitter implements WhatsAppEngineCore {
       this.setStatus(WhatsAppEngineStatus.ERROR);
       return;
     }
+    this.stopWatchdog();
     this.reconnectAttempts += 1;
     const delay = calculateReconnectDelay(this.config.reconnectDelay, this.reconnectAttempts);
     this.setStatus(WhatsAppEngineStatus.RECONNECTING);
     this.reconnectTimer = setTimeout(async () => {
       this.reconnectTimer = null;
+      if (this.isShuttingDown) return;
       try {
         this.sessionActive = false;
         if (this.client) {

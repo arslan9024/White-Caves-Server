@@ -26,6 +26,7 @@ export function startReadyWatchdog(opts: ReadyWatchdogOptions): () => void {
     if (!client) return stop();
     try {
       const state = await client.getState?.().catch(() => null);
+      if (stopped || opts.isReady()) return stop();
       if (client.info?.wid || state === 'CONNECTED') {
         console.log(`[WhatsAppEngine:${opts.clientId}] Watchdog promoted AUTHENTICATING -> READY (state=${state ?? 'wid'})`);
         stop();
@@ -35,6 +36,7 @@ export function startReadyWatchdog(opts: ReadyWatchdogOptions): () => void {
     } catch {
       // ignore probe errors; keep polling
     }
+    if (stopped) return;
     if (Date.now() - startedAt >= timeoutMs) {
       console.warn(`[WhatsAppEngine:${opts.clientId}] Watchdog timeout after ${timeoutMs / 1000}s in AUTHENTICATING — restarting client`);
       stop();

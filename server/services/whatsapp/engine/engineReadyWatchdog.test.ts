@@ -37,4 +37,17 @@ describe('startReadyWatchdog', () => {
     await vi.advanceTimersByTimeAsync(3000);
     expect(onReady).not.toHaveBeenCalled();
   });
+
+  it('does not invoke onTimeout when stopped while getState probe is in flight', async () => {
+    let resolveState!: (v: string) => void;
+    const client = { getState: () => new Promise<string>(r => { resolveState = r; }) };
+    const onTimeout = vi.fn();
+    const stop = startReadyWatchdog({ clientId: 't', getClient: () => client, isReady: () => false, onReady: vi.fn(), onTimeout, intervalMs: 1000, timeoutMs: 500 });
+    await vi.advanceTimersByTimeAsync(1000);
+    stop();
+    resolveState('OPENING');
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(onTimeout).not.toHaveBeenCalled();
+  });
 });

@@ -70,11 +70,20 @@ export async function initializeWhatsAppClient(
   // Clear stale Chromium SingletonLock/Cookie/Socket files before launch
   const sessionDir = path.join(config.sessionPath, `session-${config.clientId}`);
   if (fs.existsSync(sessionDir)) {
-    const cleaned = sanitizeSessionLocks(sessionDir).filter(r => r.deleted);
+    const lockResults = sanitizeSessionLocks(sessionDir);
+    const cleaned = lockResults.filter(r => r.deleted);
     if (cleaned.length > 0) {
       console.log(
         `[WhatsAppEngine:${config.clientId}] Cleaned stale lock files: ${cleaned.map(c => c.file).join(', ')}`
       );
+    }
+    const activeLocks = lockResults.filter(r => r.existed && !r.deleted && r.error);
+    if (activeLocks.length > 0) {
+      console.warn(
+        `[WhatsAppEngine:${config.clientId}] Active Chromium lock detected (${activeLocks.map(l => l.file).join(', ')}), waiting 750ms before retry...`
+      );
+      await new Promise(resolve => setTimeout(resolve, 750));
+      sanitizeSessionLocks(sessionDir);
     }
   }
 
@@ -90,6 +99,11 @@ export async function initializeWhatsAppClient(
     puppeteer: {
       headless: config.headless,
       timeout: 120_000,
+      // Disable Puppeteer's built-in SIGINT/SIGTERM taskkill handlers so graceful
+      // client.destroy() flushes Chromium IndexedDB/LocalStorage auth tokens cleanly.
+      handleSIGINT: false,
+      handleSIGTERM: false,
+      handleSIGHUP: false,
       ...(executablePath ? { executablePath } : {}),
       args: [
         '--no-sandbox',
@@ -108,7 +122,7 @@ export async function initializeWhatsAppClient(
       process.env.LINDA_USER_AGENT ||
       'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
     authTimeoutMs: 120_000,
-    restartOnAuthFail: true,
+    restartOnAuthFail: false,
     takeoverOnConflict: true,
     ...(config.pairWithPhoneNumber ? { pairWithPhoneNumber: config.pairWithPhoneNumber } : {}),
   };
