@@ -186,9 +186,9 @@ function padAnsi(str: string, width: number): string {
 }
 
 function renderDashboard(): void {
-  const width = Math.max(88, Math.min(process.stdout.columns || 110, 128));
+  const width = Math.max(92, Math.min(process.stdout.columns || 116, 136));
   const colGap = ' │ ';
-  const leftW = Math.floor((width - 3) * 0.33);
+  const leftW = Math.floor((width - 3) * 0.38);
   const rightW = width - 3 - leftW;
   const divider = `${ANSI.slate}${'─'.repeat(width)}${ANSI.reset}`;
   const accounts = lindaMultiSimPool.listPoolAccounts();
@@ -200,105 +200,126 @@ function renderDashboard(): void {
   const uptime = formatUptime(Date.now() - startedAt);
   const liveDot = tickCount % 2 === 0 ? `${ANSI.green}● LIVE${ANSI.reset}` : `${ANSI.dim}○ LIVE${ANSI.reset}`;
 
+  const primaryCfg = lindaMultiSimPool.getPrimaryAccount();
+  const primaryAcc = accounts.find(a => a.phoneNumber === primaryCfg.phoneNumber) || accounts[0];
+  const primaryBadge = primaryAcc?.isConnected ? `${ANSI.green}● LIVE & READY${ANSI.reset}` : `${ANSI.yellow}○ ${primaryAcc?.engineStatus || 'OFFLINE'}${ANSI.reset}`;
+
   const filteredAccounts = selectedCategory === 'all'
     ? accounts
     : accounts.filter(a => a.role === selectedCategory);
 
-  const leftCol: string[] = pairingSelectMode === 'category' ? [
-    `${ANSI.yellow}${ANSI.bold}▲ SELECT ROLE CATEGORY${ANSI.reset}`,
-    `${ANSI.cyan}[1]${ANSI.reset} Master Closers`,
-    `${ANSI.cyan}[2]${ANSI.reset} Employees (Agents)`,
-    `${ANSI.cyan}[3]${ANSI.reset} Hunters (Servants)`,
-    `${ANSI.cyan}[4]${ANSI.reset} All Registered Accounts`,
-    `${ANSI.cyan}[5]${ANSI.reset} + Add New Number Manually`,
-    `${ANSI.cyan}[0]${ANSI.reset} Cancel / Back`,
-    `${ANSI.slate}${'─'.repeat(leftW)}${ANSI.reset}`,
-    `${ANSI.dim}Choose 1-5 or 0 to back${ANSI.reset}`,
-  ] : pairingSelectMode === 'account_list' ? [
-    `${ANSI.yellow}${ANSI.bold}▲ SELECT ${selectedCategory.toUpperCase()} TO PAIR${ANSI.reset}`,
-    ...filteredAccounts.map((a, idx) => `${ANSI.cyan}[${idx + 1}]${ANSI.reset} ${a.id.slice(0, 6)} (+${a.phoneNumber.replace(/\D/g, '')})`),
-    `${ANSI.cyan}[n]${ANSI.reset} + Add New ${selectedCategory.toUpperCase()}`,
-    `${ANSI.cyan}[0]${ANSI.reset} Back to Roles`,
-    `${ANSI.slate}${'─'.repeat(leftW)}${ANSI.reset}`,
-    `${ANSI.dim}1-${filteredAccounts.length}, n to add, 0 back${ANSI.reset}`,
-  ] : pairingSelectMode === 'manual_phone' ? [
-    `${ANSI.yellow}${ANSI.bold}▲ ENTER NEW ${selectedCategory.toUpperCase()} NUMBER${ANSI.reset}`,
-    `${ANSI.white}Role:${ANSI.reset} ${selectedCategory.toUpperCase()}`,
-    `${ANSI.dim}Format: 0563616136 or 971563616136${ANSI.reset}`,
-    `${ANSI.cyan}[0]${ANSI.reset} Cancel / Back`,
-    `${ANSI.slate}${'─'.repeat(leftW)}${ANSI.reset}`,
-    `${ANSI.red}${ANSI.bold}phone>${ANSI.reset} ${ANSI.white}${inputBuffer}${ANSI.reset}`,
-  ] : [
-    `${ANSI.red}${ANSI.bold}▲ INPUT SIDE${ANSI.reset} ${ANSI.dim}(${lastCommandMs}ms)${ANSI.reset}`,
-    `${ANSI.cyan}[1]${ANSI.reset} Pair   ${ANSI.cyan}[4]${ANSI.reset} Clear`,
-    `${ANSI.cyan}[2]${ANSI.reset} Status ${ANSI.cyan}[5]${ANSI.reset} Help`,
-    `${ANSI.cyan}[3]${ANSI.reset} Health ${ANSI.cyan}[6]${ANSI.reset} ${ANSI.green}${activeAgent}${ANSI.reset}`,
-    `${ANSI.cyan}[0]${ANSI.reset} Quit   ${ANSI.dim}s <ph> <msg>${ANSI.reset}`,
-    `${ANSI.slate}${'─'.repeat(leftW)}${ANSI.reset}`,
-    `${ANSI.magenta}${ANSI.bold}◆ NODEMON / WATCHER${ANSI.reset}`,
-    `  Boot: ${ANSI.white}${new Date(startedAt).toLocaleTimeString('en-GB', { hour12: false })}${ANSI.reset} ${ANSI.cyan}SIGTERM${ANSI.reset}`,
-    `  Watch: ${ANSI.dim}server, prisma, src${ANSI.reset}`,
-    `${ANSI.slate}${'─'.repeat(leftW)}${ANSI.reset}`,
-    `${ANSI.white}SIMs:${ANSI.reset} ${accounts.map(a => `${a.isConnected ? ANSI.green + '●' : ANSI.yellow + '○'}${ANSI.reset}${a.id.slice(0, 4)}`).join(' ')}`,
-  ];
-  if (pairingSelectMode !== 'none') {
-    // Left column handles menu states
-  } else if (rawKeypadActive) {
-    leftCol.push(`${ANSI.red}${ANSI.bold}input>${ANSI.reset} ${ANSI.white}${inputBuffer}${ANSI.reset}`);
-  } else {
-    leftCol.push(`${ANSI.dim}1-6/0 or cmd + Enter${ANSI.reset}`);
-  }
-
-  const primaryCfg = lindaMultiSimPool.getPrimaryAccount();
-  const primaryAcc = accounts.find(a => a.phoneNumber === primaryCfg.phoneNumber) || accounts[0];
-  const primaryBadge = primaryAcc?.isConnected ? `${ANSI.green}● LIVE & READY${ANSI.reset}` : `${ANSI.yellow}○ ${primaryAcc?.engineStatus || 'OFFLINE'}${ANSI.reset}`;
-  const rightCol: string[] = [
-    `${ANSI.cyan}${ANSI.bold}▼ OUTPUT SIDE${ANSI.reset} ${ANSI.dim}(Accounts & Server)${ANSI.reset}`,
-    `${ANSI.yellow}▸ MASTER & HUNTER ACCOUNTS${ANSI.reset} ${ANSI.dim}(${connectedCount}/${accounts.length} online)${ANSI.reset} | Primary: ${primaryBadge}`,
-  ];
-  for (const acc of accounts) {
-    const badge = acc.isConnected ? `${ANSI.green}● ONLINE ${ANSI.reset}` : `${ANSI.yellow}○ OFFLINE${ANSI.reset}`;
-    rightCol.push(`  ${ANSI.white}${acc.id.padEnd(10)}${ANSI.reset} ${ANSI.slate}+${acc.phoneNumber.padEnd(13)}${ANSI.reset} ${badge} ${ANSI.dim}[${acc.engineStatus}]${ANSI.reset}`);
-  }
-  rightCol.push(`${ANSI.cyan}▸ WHITE CAVES SERVER${ANSI.reset} ${ANSI.dim}(${suppressedDuplicates} dupes suppressed)${ANSI.reset}`);
-  const maxRightMsg = Math.max(24, rightW - 16);
-  if (serverFeed.length === 0) {
-    rightCol.push(`  ${ANSI.dim}No server events yet.${ANSI.reset}`);
-  } else {
-    for (const entry of serverFeed) {
-      rightCol.push(`${ANSI.dim}${entry.time}${ANSI.reset} ${levelColor(entry.level)}[${entry.level.padEnd(4)}]${ANSI.reset} ${ANSI.white}${truncate(entry.message, maxRightMsg)}${ANSI.reset}`);
-    }
-  }
-
   const lines: string[] = [
     ANSI.clearScreen,
     `${ANSI.red}${ANSI.bold}╔${'═'.repeat(width - 2)}╗${ANSI.reset}`,
-    `${ANSI.red}${ANSI.bold}║${ANSI.reset} ${ANSI.red}${ANSI.bold}WHITE CAVES SERVER${ANSI.reset} ${liveDot} ${ANSI.dim}:${port} | Up ${uptime} | ${memMb}MB | SIMs ${connectedCount}/${accounts.length} | S:${totalSent} R:${totalRecv}${ANSI.reset}`,
+    `${ANSI.red}${ANSI.bold}║${ANSI.reset} ${ANSI.red}${ANSI.bold}WHITE CAVES ECOSYSTEM${ANSI.reset} ${liveDot} ${ANSI.dim}:${port} | Up ${uptime} | ${memMb}MB | SIMs ${connectedCount}/${accounts.length} | S:${totalSent} R:${totalRecv}${ANSI.reset}`,
     `${ANSI.red}${ANSI.bold}╚${'═'.repeat(width - 2)}╝${ANSI.reset}`,
+    `${padAnsi(`${ANSI.bold}COLUMN A: INPUTS / CONTROLS${ANSI.reset}`, leftW)}${ANSI.slate}${colGap}${ANSI.reset}${padAnsi(`${ANSI.bold}COLUMN B: OUTPUTS / TELEMETRY${ANSI.reset}`, rightW)}`,
+    divider,
   ];
 
-  const rows = Math.max(leftCol.length, rightCol.length);
-  for (let i = 0; i < rows; i++) {
-    const l = padAnsi(leftCol[i] || '', leftW);
-    const r = rightCol[i] || '';
-    lines.push(`${l}${ANSI.slate}${colGap}${ANSI.reset}${r}`);
-  }
+  const renderSection = (title: string, leftRows: string[], rightRows: string[]) => {
+    lines.push(`${ANSI.white}${ANSI.bold}[${title}]${ANSI.reset}`);
+    const maxRows = Math.max(leftRows.length, rightRows.length);
+    for (let i = 0; i < maxRows; i++) {
+      const l = padAnsi(leftRows[i] || '', leftW);
+      const r = rightRows[i] || '';
+      lines.push(`${l}${ANSI.slate}${colGap}${ANSI.reset}${r}`);
+    }
+    lines.push(divider);
+  };
 
-  // Footer Row: AICC-SANCTUM (Inputs & Outputs)
-  lines.push(divider);
-  lines.push(
-    `${ANSI.green}${ANSI.bold}◆ AICC-SANCTUM${ANSI.reset} ${ANSI.dim}(COO: AI Zoe | 12 Floors | CRM :3000 | Web :3001 | Aegis :3333)${ANSI.reset}  ${ANSI.cyan}▸ AI ${activeAgent.toUpperCase()} OUTPUT${ANSI.reset} ${ANSI.dim}([6] switch)${ANSI.reset}`
-  );
-  const activeFeed = agentFeeds[activeAgent];
-  const maxFooterMsg = Math.max(30, width - 18);
-  if (activeFeed.length === 0) {
-    lines.push(`  ${ANSI.dim}No ${activeAgent} events yet.${ANSI.reset}`);
+  // ══════════════════════════════════════════════════════════════════
+  // ROW 1: WHITE-CAVES-SERVER
+  // ══════════════════════════════════════════════════════════════════
+  const row1Left = [
+    `${ANSI.magenta}${ANSI.bold}Process & Watcher Status${ANSI.reset}`,
+    `  Host: ${ANSI.white}http://localhost:${port}${ANSI.reset} ${ANSI.dim}(REST + WS)${ANSI.reset}`,
+    `  Watch: ${ANSI.dim}server, prisma, src (data/ ignored)${ANSI.reset}`,
+    `  Signals: ${ANSI.cyan}SIGTERM / SIGUSR2 graceful flush${ANSI.reset}`,
+    `  RAM: ${ANSI.white}${memMb}MB${ANSI.reset} | Uptime: ${ANSI.dim}${uptime}${ANSI.reset}`,
+  ];
+  const maxRightMsg = Math.max(26, rightW - 16);
+  const row1Right = [
+    `${ANSI.cyan}${ANSI.bold}Live Server Stream${ANSI.reset} ${ANSI.dim}(${suppressedDuplicates} dupes suppressed)${ANSI.reset}`,
+    ...(serverFeed.length === 0
+      ? [`  ${ANSI.dim}No server events logged yet.${ANSI.reset}`]
+      : serverFeed.slice(-5).map(e => `  ${ANSI.dim}${e.time}${ANSI.reset} ${levelColor(e.level)}[${e.level.padEnd(4)}]${ANSI.reset} ${ANSI.white}${truncate(e.message, maxRightMsg)}${ANSI.reset}`)),
+  ];
+  renderSection('ROW 1: WHITE-CAVES-SERVER', row1Left, row1Right);
+
+  // ══════════════════════════════════════════════════════════════════
+  // ROW 2: INPUT CHOICE & MULTI-ACCOUNT POOL
+  // ══════════════════════════════════════════════════════════════════
+  let row2Left: string[] = [];
+  if (pairingSelectMode === 'category') {
+    row2Left = [
+      `${ANSI.yellow}${ANSI.bold}Select Role Category:${ANSI.reset}`,
+      `  ${ANSI.cyan}[1]${ANSI.reset} Master Closers`,
+      `  ${ANSI.cyan}[2]${ANSI.reset} Employees (Agents)`,
+      `  ${ANSI.cyan}[3]${ANSI.reset} Hunters (Servants)`,
+      `  ${ANSI.cyan}[4]${ANSI.reset} All Registered Accounts`,
+      `  ${ANSI.cyan}[5]${ANSI.reset} + Add New Number Manually`,
+      `  ${ANSI.cyan}[0]${ANSI.reset} Back / Cancel`,
+      `  ${ANSI.dim}Action: type choice + Enter${ANSI.reset}`,
+    ];
+  } else if (pairingSelectMode === 'account_list') {
+    row2Left = [
+      `${ANSI.yellow}${ANSI.bold}Pair ${selectedCategory.toUpperCase()} SIM:${ANSI.reset}`,
+      ...filteredAccounts.slice(0, 5).map((a, idx) => `  ${ANSI.cyan}[${idx + 1}]${ANSI.reset} ${a.id.slice(0, 8)} (+${a.phoneNumber.replace(/\D/g, '')})`),
+      `  ${ANSI.cyan}[n]${ANSI.reset} + Add New ${selectedCategory.toUpperCase()} number`,
+      `  ${ANSI.cyan}[0]${ANSI.reset} Back to Roles`,
+    ];
+  } else if (pairingSelectMode === 'manual_phone') {
+    row2Left = [
+      `${ANSI.yellow}${ANSI.bold}Enter New Phone for ${selectedCategory.toUpperCase()}:${ANSI.reset}`,
+      `  Format: 0563616136 or 971563616136`,
+      `  ${ANSI.cyan}[0]${ANSI.reset} Cancel / Back`,
+      `  ${ANSI.red}${ANSI.bold}phone>${ANSI.reset} ${ANSI.white}${inputBuffer}${ANSI.reset}`,
+    ];
   } else {
-    for (const entry of activeFeed) {
-      lines.push(`  ${ANSI.dim}${entry.time}${ANSI.reset} ${levelColor(entry.level)}[${entry.level.padEnd(4)}]${ANSI.reset} ${ANSI.white}${truncate(entry.message, maxFooterMsg)}${ANSI.reset}`);
+    row2Left = [
+      `${ANSI.red}${ANSI.bold}Action Keypad / Choices${ANSI.reset} ${ANSI.dim}(${lastCommandMs}ms)${ANSI.reset}`,
+      `  ${ANSI.cyan}[1]${ANSI.reset} Pair / Add Accounts (Menu)`,
+      `  ${ANSI.cyan}[2]${ANSI.reset} Status  ${ANSI.cyan}[3]${ANSI.reset} Health`,
+      `  ${ANSI.cyan}[4]${ANSI.reset} Clear   ${ANSI.cyan}[5]${ANSI.reset} Help`,
+      `  ${ANSI.cyan}[6]${ANSI.reset} Cycle Agent (${ANSI.green}${activeAgent}${ANSI.reset})`,
+      `  ${ANSI.dim}Direct: s <ph> <msg> | campaign dry/test${ANSI.reset}`,
+    ];
+    if (rawKeypadActive) {
+      row2Left.push(`  ${ANSI.red}${ANSI.bold}input>${ANSI.reset} ${ANSI.white}${inputBuffer}${ANSI.reset}`);
+    } else {
+      row2Left.push(`  ${ANSI.dim}Type choice and hit Enter${ANSI.reset}`);
     }
   }
-  lines.push(divider);
+
+  const row2Right = [
+    `${ANSI.yellow}${ANSI.bold}WhatsApp Accounts Roster${ANSI.reset} ${ANSI.dim}(${connectedCount}/${accounts.length} online)${ANSI.reset} | Primary: ${primaryBadge}`,
+    ...accounts.map(acc => {
+      const badge = acc.isConnected ? `${ANSI.green}● ONLINE ${ANSI.reset}` : `${ANSI.yellow}○ OFFLINE${ANSI.reset}`;
+      const roleTag = acc.role === 'master' ? `${ANSI.red}MASTER${ANSI.reset}` : acc.role === 'employee' ? `${ANSI.cyan}EMP${ANSI.reset}` : `${ANSI.slate}HUNTER${ANSI.reset}`;
+      return `  ${ANSI.white}${acc.id.padEnd(8)}${ANSI.reset} ${badge} [${roleTag}] +${acc.phoneNumber.replace(/\D/g, '').padEnd(12)} ${ANSI.dim}(S:${acc.messagesSent} R:${acc.messagesReceived})${ANSI.reset}`;
+    }),
+  ];
+  renderSection('ROW 2: INPUT CHOICES & WHATSAPP POOL', row2Left, row2Right);
+
+  // ══════════════════════════════════════════════════════════════════
+  // ROW 3: AICC-SANCTUM & AGENT OUTPUT
+  // ══════════════════════════════════════════════════════════════════
+  const row3Left = [
+    `${ANSI.green}${ANSI.bold}Sanctum Orchestration${ANSI.reset}`,
+    `  COO: ${ANSI.white}AI Zoe${ANSI.reset} | 12 Floors Wilkes Arch`,
+    `  Active: ${ANSI.green}${ANSI.bold}AI ${activeAgent.toUpperCase()}${ANSI.reset} ${ANSI.dim}(Press [6] to switch)${ANSI.reset}`,
+    `  Agents: ${AGENTS.map(a => a === activeAgent ? `${ANSI.green}${a}${ANSI.reset}` : `${ANSI.dim}${a}${ANSI.reset}`).join(', ')}`,
+    `  Portals: ${ANSI.dim}CRM :3000 | Web :3001 | Aegis :3333${ANSI.reset}`,
+  ];
+  const activeFeed = agentFeeds[activeAgent];
+  const row3Right = [
+    `${ANSI.cyan}${ANSI.bold}AI ${activeAgent.toUpperCase()} Dedicated Feed${ANSI.reset}`,
+    ...(activeFeed.length === 0
+      ? [`  ${ANSI.dim}No ${activeAgent} events recorded yet.${ANSI.reset}`]
+      : activeFeed.slice(-5).map(e => `  ${ANSI.dim}${e.time}${ANSI.reset} ${levelColor(e.level)}[${e.level.padEnd(4)}]${ANSI.reset} ${ANSI.white}${truncate(e.message, maxRightMsg)}${ANSI.reset}`)),
+  ];
+  renderSection('ROW 3: AICC-SANCTUM AGENT DISPATCH', row3Left, row3Right);
 
   rawStdoutWrite(lines.join('\n') + '\n');
   if (rlInstance && !rawKeypadActive) {
