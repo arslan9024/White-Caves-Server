@@ -30,8 +30,8 @@ interface UniqueOutputEntry {
 const AGENTS = ['linda', 'henry', 'daisy', 'diana', 'zoe'] as const;
 type AgentName = (typeof AGENTS)[number];
 
-const MAX_SERVER_OUTPUTS = 6;
-const MAX_AGENT_OUTPUTS = 6;
+const MAX_SERVER_OUTPUTS = 8;
+const MAX_AGENT_OUTPUTS = 8;
 const uniqueServerKeys = new Set<string>();
 const serverFeed: UniqueOutputEntry[] = [];
 const agentKeys: Record<AgentName, Set<string>> = {
@@ -204,8 +204,16 @@ function renderDashboard(): void {
     `${ANSI.cyan}[2]${ANSI.reset} Status ${ANSI.cyan}[5]${ANSI.reset} Help`,
     `${ANSI.cyan}[3]${ANSI.reset} Health ${ANSI.cyan}[6]${ANSI.reset} ${ANSI.green}${activeAgent}${ANSI.reset}`,
     `${ANSI.cyan}[0]${ANSI.reset} Quit   ${ANSI.dim}s <ph> <msg>${ANSI.reset}`,
-    `${ANSI.magenta}${ANSI.bold}◆ NODEMON${ANSI.reset} ${ANSI.dim}(SIGTERM)${ANSI.reset}`,
-    `  Boot: ${ANSI.white}${new Date(startedAt).toLocaleTimeString('en-GB', { hour12: false })}${ANSI.reset}`,
+    `${ANSI.slate}${'─'.repeat(leftW)}${ANSI.reset}`,
+    `${ANSI.cyan}${ANSI.bold}◆ AICC-SANCTUM${ANSI.reset}`,
+    `  COO: ${ANSI.green}AI Zoe${ANSI.reset} ${ANSI.dim}(12 Floors)${ANSI.reset}`,
+    `  CRM: ${ANSI.white}:3000${ANSI.reset} | Web: ${ANSI.white}:3001${ANSI.reset}`,
+    `  Aegis: ${ANSI.white}:3333${ANSI.reset} | API: ${ANSI.white}:5001${ANSI.reset}`,
+    `${ANSI.slate}${'─'.repeat(leftW)}${ANSI.reset}`,
+    `${ANSI.magenta}${ANSI.bold}◆ NODEMON / WATCHER${ANSI.reset}`,
+    `  Boot: ${ANSI.white}${new Date(startedAt).toLocaleTimeString('en-GB', { hour12: false })}${ANSI.reset} ${ANSI.cyan}SIGTERM${ANSI.reset}`,
+    `  Watch: ${ANSI.dim}server, prisma, src${ANSI.reset}`,
+    `${ANSI.slate}${'─'.repeat(leftW)}${ANSI.reset}`,
     `${ANSI.white}SIMs:${ANSI.reset} ${accounts.map(a => `${a.isConnected ? ANSI.green + '●' : ANSI.yellow + '○'}${ANSI.reset}${a.id.slice(0, 4)}`).join(' ')}`,
   ];
   if (rawKeypadActive) {
