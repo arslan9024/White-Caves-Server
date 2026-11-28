@@ -52,6 +52,8 @@ let activeAgent: AgentName = 'linda';
 let suppressedDuplicates = 0;
 let lastInputCommand = 'None';
 let lastCommandMs = 0;
+let lastEventTime = formatTime();
+let tickCount = 0;
 let inputBuffer = '';
 let rawKeypadActive = false;
 let rlInstance: readline.Interface | null = null;
@@ -133,8 +135,11 @@ function pushUniqueOutput(level: OutputLevel, message: string): boolean {
     scheduleRender();
     return false;
   }
-  keySet.add(key);
-  feed.push({ key, level, message: normalized, time: formatTime() });
+  uniqueOutputKeys_add: {
+    keySet.add(key);
+    lastEventTime = formatTime();
+    feed.push({ key, level, message: normalized, time: lastEventTime });
+  }
   if (feed.length > maxItems) {
     const removed = feed.shift();
     if (removed) keySet.delete(removed.key);
@@ -181,12 +186,14 @@ function renderDashboard(): void {
   const port = process.env.PORT || '5001';
   const uptime = formatUptime(Date.now() - startedAt);
 
+  const liveDot = tickCount % 2 === 0 ? `${ANSI.green}● LIVE${ANSI.reset}` : `${ANSI.dim}○ LIVE${ANSI.reset}`;
+
   const lines: string[] = [
     ANSI.clearScreen,
     `${ANSI.red}${ANSI.bold}╔${'═'.repeat(width - 2)}╗${ANSI.reset}`,
-    `${ANSI.red}${ANSI.bold}║${ANSI.reset}  ${ANSI.white}${ANSI.bold}WHITE CAVES SERVER — TERMINAL DASHBOARD${ANSI.reset} ${ANSI.dim}(:${port} | ${process.version} | PID ${process.pid})${ANSI.reset}`,
+    `${ANSI.red}${ANSI.bold}║${ANSI.reset}  ${ANSI.white}${ANSI.bold}WHITE CAVES SERVER — TERMINAL DASHBOARD${ANSI.reset} ${liveDot} ${ANSI.dim}(:${port} | ${process.version} | PID ${process.pid})${ANSI.reset}`,
     `${ANSI.red}${ANSI.bold}╚${'═'.repeat(width - 2)}╝${ANSI.reset}`,
-    `${ANSI.cyan}${ANSI.bold}▼ OUTPUT DASHBOARD${ANSI.reset} ${ANSI.slate}|${ANSI.reset} Up: ${ANSI.white}${uptime}${ANSI.reset} ${ANSI.slate}|${ANSI.reset} RAM: ${ANSI.white}${memMb}MB${ANSI.reset} ${ANSI.slate}|${ANSI.reset} SIMs: ${ANSI.green}${connectedCount}/${accounts.length}${ANSI.reset} ${ANSI.slate}|${ANSI.reset} S:${ANSI.white}${totalSent}${ANSI.reset} R:${ANSI.white}${totalRecv}${ANSI.reset}`,
+    `${ANSI.cyan}${ANSI.bold}▼ OUTPUT DASHBOARD${ANSI.reset} ${ANSI.slate}|${ANSI.reset} Up: ${ANSI.white}${uptime}${ANSI.reset} ${ANSI.slate}|${ANSI.reset} RAM: ${ANSI.white}${memMb}MB${ANSI.reset} ${ANSI.slate}|${ANSI.reset} SIMs: ${ANSI.green}${connectedCount}/${accounts.length}${ANSI.reset} ${ANSI.slate}|${ANSI.reset} S:${ANSI.white}${totalSent}${ANSI.reset} R:${ANSI.white}${totalRecv}${ANSI.reset} ${ANSI.slate}|${ANSI.reset} Last: ${ANSI.dim}${lastEventTime}${ANSI.reset}`,
     divider,
   ];
 
@@ -449,6 +456,7 @@ export function attachLindaInteractiveTerminal(): void {
 
   renderDashboard();
   setInterval(() => {
+    tickCount += 1;
     renderDashboard();
-  }, 5000).unref();
+  }, 1000).unref();
 }
