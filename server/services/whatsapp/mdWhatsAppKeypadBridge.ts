@@ -49,6 +49,13 @@ export async function handleMdWhatsAppCommand(
 
   if (lower === '0' || lower === 'menu' || lower === 'help' || lower === 'keypad') {
     reply = buildKeypadMenu();
+  } else if (/^(hi\s+zoe|hey\s+zoe|invoke\s+zoe|\/zoe|zoe)$/i.test(trimmed)) {
+    console.log('[AI ZOE] Invoked by MD via WhatsApp (AICC-Sanctum COO)');
+    reply = `*AI ZOE (COO — AICC-Sanctum)* online.\n\n${buildKeypadMenu()}`;
+  } else if (/^zoe\s+([\s\S]+)$/i.test(trimmed)) {
+    const zoeMsg = trimmed.replace(/^zoe\s+/i, '').trim();
+    console.log(`[AI ZOE] MD WhatsApp: ${zoeMsg}`);
+    reply = `*AI ZOE (COO)* received: "${zoeMsg}"\n\n${getAgentOutputSnapshot('zoe')}\n\n_Reply 0 for keypad_`;
   } else if (lower === '1' || lower === 'status') {
     reply = `${getServerStatusSnapshot()}\n\n_Reply 0 for keypad_`;
   } else if (lower === '2') {
