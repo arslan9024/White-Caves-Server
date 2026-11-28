@@ -1,4 +1,7 @@
 import './config/env.js';
+if (process.env.LINDA_TERMINAL_DASHBOARD === 'true' && process.stdout.isTTY) {
+  process.stdout.write('\x1Bc');
+}
 import express from 'express';
 import { mountDomainRoutes } from './routes/registry.js';
 import { configureMiddleware } from './bootstrap/middleware.js';

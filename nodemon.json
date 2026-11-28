@@ -10,6 +10,9 @@
     "**/*.spec.ts"
   ],
   "exec": "node ./node_modules/tsx/dist/cli.mjs server/index.ts",
+  "events": {
+    "restart": "node -e \"process.stdout.write('\\x1Bc')\""
+  },
   "signal": "SIGTERM",
   "delay": "250"
 }
