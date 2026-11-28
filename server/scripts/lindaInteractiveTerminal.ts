@@ -205,11 +205,6 @@ function renderDashboard(): void {
     `${ANSI.cyan}[3]${ANSI.reset} Health ${ANSI.cyan}[6]${ANSI.reset} ${ANSI.green}${activeAgent}${ANSI.reset}`,
     `${ANSI.cyan}[0]${ANSI.reset} Quit   ${ANSI.dim}s <ph> <msg>${ANSI.reset}`,
     `${ANSI.slate}${'─'.repeat(leftW)}${ANSI.reset}`,
-    `${ANSI.cyan}${ANSI.bold}◆ AICC-SANCTUM${ANSI.reset}`,
-    `  COO: ${ANSI.green}AI Zoe${ANSI.reset} ${ANSI.dim}(12 Floors)${ANSI.reset}`,
-    `  CRM: ${ANSI.white}:3000${ANSI.reset} | Web: ${ANSI.white}:3001${ANSI.reset}`,
-    `  Aegis: ${ANSI.white}:3333${ANSI.reset} | API: ${ANSI.white}:5001${ANSI.reset}`,
-    `${ANSI.slate}${'─'.repeat(leftW)}${ANSI.reset}`,
     `${ANSI.magenta}${ANSI.bold}◆ NODEMON / WATCHER${ANSI.reset}`,
     `  Boot: ${ANSI.white}${new Date(startedAt).toLocaleTimeString('en-GB', { hour12: false })}${ANSI.reset} ${ANSI.cyan}SIGTERM${ANSI.reset}`,
     `  Watch: ${ANSI.dim}server, prisma, src${ANSI.reset}`,
@@ -223,7 +218,7 @@ function renderDashboard(): void {
   }
 
   const rightCol: string[] = [
-    `${ANSI.cyan}${ANSI.bold}▼ OUTPUT SIDE${ANSI.reset} ${ANSI.dim}(Accounts, Server & AI Agents)${ANSI.reset}`,
+    `${ANSI.cyan}${ANSI.bold}▼ OUTPUT SIDE${ANSI.reset} ${ANSI.dim}(Accounts & Server)${ANSI.reset}`,
     `${ANSI.yellow}▸ MASTER & HUNTER ACCOUNTS${ANSI.reset} ${ANSI.dim}(${connectedCount}/${accounts.length} online)${ANSI.reset}`,
   ];
   for (const acc of accounts) {
@@ -239,20 +234,11 @@ function renderDashboard(): void {
       rightCol.push(`${ANSI.dim}${entry.time}${ANSI.reset} ${levelColor(entry.level)}[${entry.level.padEnd(4)}]${ANSI.reset} ${ANSI.white}${truncate(entry.message, maxRightMsg)}${ANSI.reset}`);
     }
   }
-  rightCol.push(`${ANSI.green}▸ AI ${activeAgent.toUpperCase()} OUTPUT${ANSI.reset} ${ANSI.dim}([6] switch)${ANSI.reset}`);
-  const activeFeed = agentFeeds[activeAgent];
-  if (activeFeed.length === 0) {
-    rightCol.push(`  ${ANSI.dim}No ${activeAgent} events yet.${ANSI.reset}`);
-  } else {
-    for (const entry of activeFeed) {
-      rightCol.push(`${ANSI.dim}${entry.time}${ANSI.reset} ${levelColor(entry.level)}[${entry.level.padEnd(4)}]${ANSI.reset} ${ANSI.white}${truncate(entry.message, maxRightMsg)}${ANSI.reset}`);
-    }
-  }
 
   const lines: string[] = [
     ANSI.clearScreen,
     `${ANSI.red}${ANSI.bold}╔${'═'.repeat(width - 2)}╗${ANSI.reset}`,
-    `${ANSI.red}${ANSI.bold}║${ANSI.reset} ${ANSI.white}${ANSI.bold}WHITE CAVES SERVER${ANSI.reset} ${liveDot} ${ANSI.dim}:${port} | Up ${uptime} | ${memMb}MB | SIMs ${connectedCount}/${accounts.length} | S:${totalSent} R:${totalRecv}${ANSI.reset}`,
+    `${ANSI.red}${ANSI.bold}║${ANSI.reset} ${ANSI.red}${ANSI.bold}WHITE CAVES SERVER${ANSI.reset} ${liveDot} ${ANSI.dim}:${port} | Up ${uptime} | ${memMb}MB | SIMs ${connectedCount}/${accounts.length} | S:${totalSent} R:${totalRecv}${ANSI.reset}`,
     `${ANSI.red}${ANSI.bold}╚${'═'.repeat(width - 2)}╝${ANSI.reset}`,
   ];
 
@@ -261,6 +247,21 @@ function renderDashboard(): void {
     const l = padAnsi(leftCol[i] || '', leftW);
     const r = rightCol[i] || '';
     lines.push(`${l}${ANSI.slate}${colGap}${ANSI.reset}${r}`);
+  }
+
+  // Footer Row: AICC-SANCTUM (Inputs & Outputs)
+  lines.push(divider);
+  lines.push(
+    `${ANSI.green}${ANSI.bold}◆ AICC-SANCTUM${ANSI.reset} ${ANSI.dim}(COO: AI Zoe | 12 Floors | CRM :3000 | Web :3001 | Aegis :3333)${ANSI.reset}  ${ANSI.cyan}▸ AI ${activeAgent.toUpperCase()} OUTPUT${ANSI.reset} ${ANSI.dim}([6] switch)${ANSI.reset}`
+  );
+  const activeFeed = agentFeeds[activeAgent];
+  const maxFooterMsg = Math.max(30, width - 18);
+  if (activeFeed.length === 0) {
+    lines.push(`  ${ANSI.dim}No ${activeAgent} events yet.${ANSI.reset}`);
+  } else {
+    for (const entry of activeFeed) {
+      lines.push(`  ${ANSI.dim}${entry.time}${ANSI.reset} ${levelColor(entry.level)}[${entry.level.padEnd(4)}]${ANSI.reset} ${ANSI.white}${truncate(entry.message, maxFooterMsg)}${ANSI.reset}`);
+    }
   }
   lines.push(divider);
 
