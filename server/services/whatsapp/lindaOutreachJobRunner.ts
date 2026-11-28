@@ -12,6 +12,7 @@ import { LINDA_ENABLED, LINDA_SESSIONS_PATH } from '../../config/env.js';
 import { createLogger } from '../../utils/logger.js';
 import { getSocketServer } from '../socketServer.js';
 import { lindaMultiSimPool, normalizePhoneDigits } from './LindaMultiSimPoolService.js';
+import { WhatsAppEngineStatus } from './WhatsAppEngine.js';
 import { PRIMARY_MASTER_PHONE } from './leasingSimOutreachFormula.js';
 import {
   buildCompliantDh2BroadcastMessage,
@@ -152,6 +153,71 @@ function hasSavedLocalAuthProfile(phoneNumber: string): boolean {
   return fs.existsSync(path.join(sessionsBase, `session-${digits}`, 'Default'));
 }
 
+const MAX_TIMER_DELAY_MS = 2_147_483_647;
+let primaryMasterKeepAliveTimer: NodeJS.Timeout | null = null;
+let keepAliveInFlight: Promise<boolean> | null = null;
+let bootReconnectPromise: Promise<void> | null = null;
+
+export function parsePositiveDelayMs(raw: string | undefined, fallbackMs: number, minMs = 0): number {
+  const trimmed = raw?.trim();
+  const parsed = trimmed ? Number(trimmed) : Number.NaN;
+  const delayMs = Number.isFinite(parsed) && parsed > 0 ? Math.max(minMs, parsed) : Math.max(minMs, fallbackMs);
+  return Math.min(delayMs, MAX_TIMER_DELAY_MS);
+}
+
+export function shouldRecoverPrimaryMaster(
+  master?: { isConnected: boolean; engineStatus: WhatsAppEngineStatus | string } | null
+): boolean {
+  if (!master || master.isConnected) return false;
+  return (
+    master.engineStatus === WhatsAppEngineStatus.DISCONNECTED ||
+    master.engineStatus === WhatsAppEngineStatus.ERROR
+  );
+}
+
+export function cleanStaleChromiumLocks(phoneNumber: string): void {
+  const digits = normalizePhoneDigits(phoneNumber);
+  const sessionsBase = path.resolve(
+    process.cwd(),
+    process.env.LINDA_SESSIONS_PATH || LINDA_SESSIONS_PATH || './.linda-sessions'
+  );
+  const sessionDir = path.join(sessionsBase, `session-${digits}`);
+  for (const lockFile of ['SingletonLock', 'SingletonCookie', 'SingletonSocket']) {
+    const target = path.join(sessionDir, lockFile);
+    try {
+      const stat = fs.lstatSync(target);
+      if (stat.isSymbolicLink() || stat.isFile()) {
+        fs.unlinkSync(target);
+        log.info(`Removed stale Chromium lock: ${lockFile} for ${phoneNumber}`);
+      }
+    } catch {
+      // Missing lock file/symlink or actively held by a live Chromium process
+    }
+  }
+}
+
+export async function runPrimaryMasterKeepAliveTick(): Promise<boolean> {
+  if (keepAliveInFlight) return keepAliveInFlight;
+  const run = (async () => {
+    if (!hasSavedLocalAuthProfile(PRIMARY_MASTER_PHONE)) return false;
+    const pool = lindaMultiSimPool.listPoolAccounts();
+    const master = pool.find(
+      acc => normalizePhoneDigits(acc.phoneNumber) === normalizePhoneDigits(PRIMARY_MASTER_PHONE)
+    );
+    if (!shouldRecoverPrimaryMaster(master)) return false;
+    cleanStaleChromiumLocks(PRIMARY_MASTER_PHONE);
+    log.info(`24/7 Keep-Alive: Reconnecting Primary Master (${PRIMARY_MASTER_PHONE})...`);
+    await lindaMultiSimPool.connectAccount(PRIMARY_MASTER_PHONE);
+    return true;
+  })();
+  keepAliveInFlight = run;
+  try {
+    return await run;
+  } finally {
+    if (keepAliveInFlight === run) keepAliveInFlight = null;
+  }
+}
+
 /**
  * Non-blocking boot helper: reconnects Primary Master (+971505760056) first and any
  * already-paired Hunter SIMs sequentially with stagger so Chrome never spikes CPU on boot.
@@ -176,17 +242,52 @@ export function startLindaPairedSessionAutoReconnect(): void {
     return;
   }
 
-  const staggerMs = Math.max(2000, Number(process.env.ACCOUNT_SEQUENTIAL_DELAY || 5000));
-  void (async () => {
-    for (let i = 0; i < candidates.length; i++) {
-      const acc = candidates[i];
-      if (i > 0) await new Promise(resolve => setTimeout(resolve, staggerMs));
-      try {
-        log.info(`Auto-reconnecting saved Linda WhatsApp session ${acc.phoneNumber} (${acc.displayName})...`);
-        await lindaMultiSimPool.connectAccount(acc.phoneNumber);
-      } catch (err) {
-        log.warn(`Auto-reconnect failed for ${acc.phoneNumber}:`, err instanceof Error ? err.message : err);
+  const staggerMs = parsePositiveDelayMs(process.env.ACCOUNT_SEQUENTIAL_DELAY, 5000, 2000);
+  if (!bootReconnectPromise) {
+    bootReconnectPromise = (async () => {
+      for (let i = 0; i < candidates.length; i++) {
+        const acc = candidates[i];
+        if (i > 0) await new Promise(resolve => setTimeout(resolve, staggerMs));
+        try {
+          cleanStaleChromiumLocks(acc.phoneNumber);
+          log.info(`Auto-reconnecting saved Linda WhatsApp session ${acc.phoneNumber} (${acc.displayName})...`);
+          await lindaMultiSimPool.connectAccount(acc.phoneNumber);
+          if (normalizePhoneDigits(acc.phoneNumber) === normalizePhoneDigits(PRIMARY_MASTER_PHONE)) {
+            const pool = lindaMultiSimPool.listPoolAccounts();
+            const master = pool.find(
+              p => normalizePhoneDigits(p.phoneNumber) === normalizePhoneDigits(PRIMARY_MASTER_PHONE)
+            );
+            if (master && !master.isConnected) {
+              setTimeout(() => {
+                void lindaMultiSimPool
+                  .requestAccountPairingCode(acc.phoneNumber)
+                  .then(pairing => {
+                    if (pairing?.pairingCode) {
+                      log.info(`🔑 PRIMARY MASTER PAIRING CODE (${acc.phoneNumber}): ${pairing.pairingCode}`);
+                    }
+                  })
+                  .catch(() => {
+                    // Silent fallback: user can run `pair <phoneOrSimId>` in dashboard
+                  });
+              }, 6000);
+            }
+          }
+        } catch (err) {
+          log.warn(`Auto-reconnect failed for ${acc.phoneNumber}:`, err instanceof Error ? err.message : err);
+        }
       }
-    }
-  })();
+    })().finally(() => {
+      bootReconnectPromise = null;
+    });
+  }
+
+  // 24/7 Primary Master Keep-Alive Watchdog (checks every 60s)
+  const keepAliveMs = parsePositiveDelayMs(process.env.PRIMARY_MASTER_KEEPALIVE_MS, 60000, 30000);
+  if (primaryMasterKeepAliveTimer) clearInterval(primaryMasterKeepAliveTimer);
+  primaryMasterKeepAliveTimer = setInterval(() => {
+    void runPrimaryMasterKeepAliveTick().catch(err => {
+      log.warn('24/7 Keep-Alive reconnect failed:', err instanceof Error ? err.message : err);
+    });
+  }, keepAliveMs);
+  if (typeof primaryMasterKeepAliveTimer.unref === 'function') primaryMasterKeepAliveTimer.unref();
 }

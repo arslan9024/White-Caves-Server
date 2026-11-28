@@ -1,4 +1,5 @@
 // @ts-nocheck
+import { formatLiveLogFooterPanel } from '../liveLogBuffer.js';
 /**
  * TerminalHealthDashboard.js
  * 
@@ -242,7 +243,7 @@ export const methodsPart1 = {
   inputBoard() {
     const count = command => this.features.actionCount(command);
     const sections = this.numberMenu.sections(count);
-    const footer = 'Type a code (1.16), a playbook step (p1.1) or a command, then Enter · 0 back · 00 home · menu · p = playbooks · help';
+    const footer = 'SERVER INPUT: pair <phone> · 1.16 · p1.1 · 0 back · 00 home · help  ||  AICC-SANCTUM: [6] switch';
     return {
       lines: width => [
         ...sections.flatMap(section => (section.reference
@@ -252,11 +253,13 @@ export const methodsPart1 = {
         'PLAYBOOKS · problem → steps · p<n> = show steps · p<n>.<step> = run step',
         ...this.playbooks.summaryLines().map(line => `  ${line}`),
         footer,
+        ...formatLiveLogFooterPanel(width, 12),
       ],
       compactLines: width => [
         ...gridLines(sections.map(section => `[${section.code}] ${section.label.replace(/\s*\(.*\)$/, '')} ${section.reference ? '(ref)' : `${section.actions} ×${section.uses}`}`), width),
         ...gridLines(PLAYBOOKS.map(p => `P${p.id} ${p.problem.replace(/\s*\(.*\)$/, '')} ×${this.features.actionCount(`p${p.id}`)}`), width),
         `Enlarge the window for every code. ${footer}`,
+        ...formatLiveLogFooterPanel(width, 12),
       ],
     };
   },
