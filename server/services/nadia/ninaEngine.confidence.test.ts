@@ -6,11 +6,14 @@
 
 import { describe, it, expect, beforeEach } from 'vitest';
 import {
+  DEFAULT_NINA_IDENTITY,
+  NinaBotAgent,
   NinaEngine,
   Intent,
   CONFIDENCE_GATE_THRESHOLD,
   type ConversationContext,
   type HandoffPayload,
+  type IntentResult,
 } from './ninaEngine.js';
 
 // ── Fixture ───────────────────────────────────────────────────────────────────
@@ -188,5 +191,52 @@ describe('NinaEngine — Confidence Gate & Escalation (W18.1-P1-004)', () => {
       expect(result.handoffPayload.customerName).toBeUndefined();
       expect(result.handoffPayload.customerPhone).toBeUndefined();
     }
+  });
+
+  // ── BaseAIAgent execution, identity, alias & feedback ────────────────────
+  it('exposes DEFAULT_NINA_IDENTITY and NinaEngine type/class alias', () => {
+    const aliasedAgent: NinaEngine = new NinaBotAgent();
+    expect(aliasedAgent).toBeInstanceOf(NinaBotAgent);
+    expect(DEFAULT_NINA_IDENTITY.id).toBe('SUP-04-1-01-1');
+    expect(DEFAULT_NINA_IDENTITY.department).toBe('DEPT-04');
+    expect(DEFAULT_NINA_IDENTITY.supervisorChain.supervisor).toBe('SUP-04-1-01-1');
+  });
+
+  it('executes process_message via executeTask and updates success telemetry', async () => {
+    const agent = new NinaBotAgent(undefined, { maxRetries: 0, baseDelayMs: 0 });
+    const res = await agent.executeTask<
+      { message: string; context: ConversationContext },
+      IntentResult
+    >('process_message', {
+      message: 'I want to view a 3BR villa in Dubai Marina. I am ready to buy.',
+      context: ctx,
+    });
+
+    expect(res.success).toBe(true);
+    expect(res.agentId).toBe(DEFAULT_NINA_IDENTITY.id);
+    expect(res.data?.primary.intent).toBe(Intent.PURCHASE_INTEREST_READY);
+    expect(res.data?.primary.confidence).toBeGreaterThan(40);
+    expect(agent.getTelemetry().tasksExecuted).toBe(1);
+    expect(agent.getTelemetry().tasksFailed).toBe(0);
+  });
+
+  it('records failure telemetry for unsupported executeTask task types', async () => {
+    const agent = new NinaBotAgent(undefined, { maxRetries: 0, baseDelayMs: 0 });
+    const res = await agent.executeTask('unknown_task_type', {});
+
+    expect(res.success).toBe(false);
+    expect(res.error).toContain('Unsupported NinaBotAgent task: unknown_task_type');
+    expect(agent.getTelemetry().tasksFailed).toBe(1);
+  });
+
+  it('records feedback only when actualIntent differs from predictedIntent', () => {
+    const agent = new NinaBotAgent();
+    const internal = agent as unknown as { learningData: Map<string, unknown> };
+
+    agent.recordFeedback('msg-same', Intent.GREETING, Intent.GREETING);
+    expect(internal.learningData.size).toBe(0);
+
+    agent.recordFeedback('msg-diff', Intent.PURCHASE_INTEREST_READY, Intent.INFORMATION_REQUEST);
+    expect(internal.learningData.size).toBe(1);
   });
 });
