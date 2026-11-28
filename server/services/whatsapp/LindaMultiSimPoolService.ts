@@ -99,6 +99,13 @@ class LindaMultiSimPoolService {
   }
 
   private async handleInboundWhatsAppMessage(account: PoolAccountConfig, fromPhone: string, body: string) {
+    if (isPrimaryMasterAccount(account)) {
+      const { handleMdWhatsAppCommand } = await import('./mdWhatsAppKeypadBridge.js');
+      const engine = this.getEngineForAccount(account);
+      if (await handleMdWhatsAppCommand(engine, fromPhone, body)) {
+        return { handledByMdBridge: true };
+      }
+    }
     if (!isPrimaryMasterAccount(account)) {
       const landlordSync = await processLandlordAvailabilityReply({
         hunterSimPhone: account.phoneNumber, landlordPhone: fromPhone, message: body,

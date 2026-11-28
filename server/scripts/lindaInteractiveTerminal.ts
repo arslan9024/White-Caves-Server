@@ -336,6 +336,29 @@ async function handleCommand(trimmed: string): Promise<void> {
   }
 }
 
+export function getServerStatusSnapshot(): string {
+  const accounts = lindaMultiSimPool.listPoolAccounts();
+  const online = accounts.filter(a => a.isConnected).length;
+  const totalSent = accounts.reduce((s, a) => s + a.messagesSent, 0);
+  const totalRecv = accounts.reduce((s, a) => s + a.messagesReceived, 0);
+  const memMb = Math.round(process.memoryUsage().rss / 1024 / 1024);
+  return [
+    `*WHITE CAVES SERVER* (:5001)`,
+    `Up: ${formatUptime(Date.now() - startedAt)} | RAM: ${memMb}MB`,
+    `SIMs: ${online}/${accounts.length} online | S:${totalSent} R:${totalRecv}`,
+    `Dupes suppressed: ${suppressedDuplicates}`,
+  ].join('\n');
+}
+
+export function getAgentOutputSnapshot(agent: AgentName): string {
+  const feed = agentFeeds[agent] || [];
+  if (feed.length === 0) {
+    return `*AI ${agent.toUpperCase()}*: No recent unique events.`;
+  }
+  const lines = feed.slice(-5).map(e => `• [${e.time}] [${e.level}] ${e.message}`);
+  return `*AI ${agent.toUpperCase()} OUTPUT*\n${lines.join('\n')}`;
+}
+
 /**
  * Interactive Server Terminal Dashboard for `npm run dev` / `npm run dev:dashboard`.
  * Intercepts console logs, deduplicates repeating lines, clears terminal on update, and separates Input & Output panels.
