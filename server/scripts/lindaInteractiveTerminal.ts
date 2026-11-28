@@ -1,9 +1,7 @@
 import os from 'node:os';
 import readline from 'node:readline';
 import { lindaMultiSimPool } from '../services/whatsapp/LindaMultiSimPoolService.js';
-import { createLogger } from '../utils/logger.js';
 
-const log = createLogger('LindaInteractiveTerminal');
 let attached = false;
 
 const ANSI = {
@@ -28,14 +26,18 @@ interface UniqueOutputEntry {
   time: string;
 }
 
-const MAX_UNIQUE_OUTPUTS = 10;
+const MAX_UNIQUE_OUTPUTS = 12;
 const uniqueOutputKeys = new Set<string>();
 const outputFeed: UniqueOutputEntry[] = [];
 let suppressedDuplicates = 0;
 let lastInputCommand = 'None';
 let lastCommandMs = 0;
 let rlInstance: readline.Interface | null = null;
+let renderTimer: NodeJS.Timeout | null = null;
 const startedAt = Date.now();
+
+// Preserve original stdout/console methods so dashboard rendering never loops
+const rawStdoutWrite = process.stdout.write.bind(process.stdout);
 
 function formatTime(): string {
   return new Date().toLocaleTimeString('en-GB', { hour12: false });
@@ -50,7 +52,7 @@ function formatUptime(ms: number): string {
 }
 
 function getTermWidth(): number {
-  return Math.max(60, Math.min(process.stdout.columns || 80, 100));
+  return Math.max(64, Math.min(process.stdout.columns || 88, 108));
 }
 
 function truncate(text: string, maxLen: number): string {
@@ -75,15 +77,24 @@ function levelColor(level: OutputLevel): string {
 }
 
 /**
- * Adds an output entry only if its (level + message) key has not already been recorded.
- * Increments `suppressedDuplicates` when identical outputs are skipped.
+ * Normalizes log lines by stripping ISO timestamps and excess whitespace
+ * so identical recurring server/WhatsApp logs are deduplicated.
  */
+function normalizeLogMessage(raw: string): string {
+  return raw
+    .replace(/\[\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z?\]\s*/g, '')
+    .replace(/\[(INFO|WARN|ERROR|DEBUG)\]\s*/gi, '')
+    .trim()
+    .replace(/\s+/g, ' ');
+}
+
 function pushUniqueOutput(level: OutputLevel, message: string): boolean {
-  const normalized = message.trim().replace(/\s+/g, ' ');
+  const normalized = normalizeLogMessage(message);
   if (!normalized) return false;
   const key = `${level}:${normalized}`;
   if (uniqueOutputKeys.has(key)) {
     suppressedDuplicates += 1;
+    scheduleRender();
     return false;
   }
   uniqueOutputKeys.add(key);
@@ -92,7 +103,34 @@ function pushUniqueOutput(level: OutputLevel, message: string): boolean {
     const removed = outputFeed.shift();
     if (removed) uniqueOutputKeys.delete(removed.key);
   }
+  scheduleRender();
   return true;
+}
+
+function scheduleRender(): void {
+  if (renderTimer) return;
+  renderTimer = setTimeout(() => {
+    renderTimer = null;
+    renderDashboard();
+  }, 150);
+}
+
+function interceptConsoleLogs(): void {
+  const formatArgs = (args: unknown[]) =>
+    args.map(a => (typeof a === 'string' ? a : a instanceof Error ? a.message : JSON.stringify(a))).join(' ');
+
+  console.log = (...args: unknown[]) => {
+    pushUniqueOutput('INFO', formatArgs(args));
+  };
+  console.info = (...args: unknown[]) => {
+    pushUniqueOutput('INFO', formatArgs(args));
+  };
+  console.warn = (...args: unknown[]) => {
+    pushUniqueOutput('WARN', formatArgs(args));
+  };
+  console.error = (...args: unknown[]) => {
+    pushUniqueOutput('ERR', formatArgs(args));
+  };
 }
 
 function renderDashboard(): void {
@@ -110,7 +148,7 @@ function renderDashboard(): void {
   const lines: string[] = [
     ANSI.clearScreen,
     `${ANSI.red}${ANSI.bold}╔${'═'.repeat(width - 2)}╗${ANSI.reset}`,
-    `${ANSI.red}${ANSI.bold}║${ANSI.reset}  ${ANSI.white}${ANSI.bold}WHITE CAVES — AI LINDA SERVER DASHBOARD${ANSI.reset} ${ANSI.dim}(:${port} | ${process.version} | PID ${process.pid})${ANSI.reset}`,
+    `${ANSI.red}${ANSI.bold}║${ANSI.reset}  ${ANSI.white}${ANSI.bold}WHITE CAVES SERVER — TERMINAL DASHBOARD${ANSI.reset} ${ANSI.dim}(:${port} | ${process.version} | PID ${process.pid})${ANSI.reset}`,
     `${ANSI.red}${ANSI.bold}╚${'═'.repeat(width - 2)}╝${ANSI.reset}`,
     `${ANSI.cyan}${ANSI.bold}▼ OUTPUT DASHBOARD${ANSI.reset} ${ANSI.slate}|${ANSI.reset} Up: ${ANSI.white}${uptime}${ANSI.reset} ${ANSI.slate}|${ANSI.reset} RAM: ${ANSI.white}${memMb}MB${ANSI.reset} ${ANSI.slate}|${ANSI.reset} SIMs: ${ANSI.green}${connectedCount}/${accounts.length}${ANSI.reset} ${ANSI.slate}|${ANSI.reset} S:${ANSI.white}${totalSent}${ANSI.reset} R:${ANSI.white}${totalRecv}${ANSI.reset}`,
     divider,
@@ -127,7 +165,7 @@ function renderDashboard(): void {
 
   lines.push(divider);
   lines.push(
-    `${ANSI.cyan}${ANSI.bold}  UNIQUE OUTPUTS${ANSI.reset} ${ANSI.dim}(max ${MAX_UNIQUE_OUTPUTS} | ${suppressedDuplicates} duplicates suppressed)${ANSI.reset}`
+    `${ANSI.cyan}${ANSI.bold}  UNIQUE OUTPUTS${ANSI.reset} ${ANSI.dim}(last ${MAX_UNIQUE_OUTPUTS} | ${suppressedDuplicates} duplicates suppressed)${ANSI.reset}`
   );
 
   if (outputFeed.length === 0) {
@@ -148,116 +186,112 @@ function renderDashboard(): void {
   );
   lines.push(divider);
   lines.push(
-    `  ${ANSI.cyan}status${ANSI.reset} | ${ANSI.cyan}health${ANSI.reset} | ${ANSI.cyan}sim${ANSI.reset} | ${ANSI.cyan}mem${ANSI.reset} | ${ANSI.cyan}env${ANSI.reset} | ${ANSI.cyan}p [phone]${ANSI.reset} | ${ANSI.cyan}qr${ANSI.reset} | ${ANSI.cyan}s <phone> <msg>${ANSI.reset} | ${ANSI.cyan}clear${ANSI.reset} | ${ANSI.cyan}help${ANSI.reset}`
+    `  ${ANSI.cyan}[1]${ANSI.reset} Pair Master (+${primary.phoneNumber.replace(/\D/g, '')})  ${ANSI.cyan}[2]${ANSI.reset} Status  ${ANSI.cyan}[3]${ANSI.reset} Health  ${ANSI.cyan}[4]${ANSI.reset} Clear  ${ANSI.cyan}[5]${ANSI.reset} Help`
   );
+  if (!process.stdin.isTTY) {
+    lines.push(`  ${ANSI.dim}(Non-TTY stdin: interactive choices disabled; Output Dashboard live)${ANSI.reset}`);
+  }
   lines.push(divider);
 
-  process.stdout.write(lines.join('\n') + '\n');
+  rawStdoutWrite(lines.join('\n') + '\n');
   if (rlInstance) {
     rlInstance.prompt(true);
   }
 }
 
+async function handleCommand(trimmed: string): Promise<void> {
+  const primary = lindaMultiSimPool.getPrimaryAccount();
+  const [rawCmd, ...rest] = trimmed.split(/\s+/);
+  const cmd = rawCmd === '1' ? 'p'
+    : rawCmd === '2' ? 'status'
+    : rawCmd === '3' ? 'health'
+    : rawCmd === '4' ? 'clear'
+    : rawCmd === '5' ? 'help'
+    : rawCmd;
+
+  if (cmd === 'clear') {
+    uniqueOutputKeys.clear();
+    outputFeed.length = 0;
+    suppressedDuplicates = 0;
+    pushUniqueOutput('INFO', 'Output feed cleared.');
+  } else if (cmd === 'status') {
+    const accounts = lindaMultiSimPool.listPoolAccounts();
+    const online = accounts.filter(a => a.isConnected).length;
+    pushUniqueOutput('OK', `Status: ${online}/${accounts.length} SIM(s) connected.`);
+  } else if (cmd === 'health') {
+    const mem = process.memoryUsage();
+    pushUniqueOutput('SYS', `Up ${formatUptime(Date.now() - startedAt)} | RSS ${Math.round(mem.rss / 1024 / 1024)}MB | Heap ${Math.round(mem.heapUsed / 1024 / 1024)}MB | Load ${os.loadavg()[0].toFixed(2)}`);
+  } else if (cmd === 'sim') {
+    const accounts = lindaMultiSimPool.listPoolAccounts();
+    pushUniqueOutput('INFO', accounts.map(a => `${a.id}:${a.isConnected ? 'ON' : 'OFF'}(S${a.messagesSent}/R${a.messagesReceived})`).join(' | '));
+  } else if (cmd === 'p') {
+    const targetPhone = (rest[0] || primary.phoneNumber).replace(/\D/g, '');
+    try {
+      const result = await lindaMultiSimPool.requestAccountPairingCode(targetPhone);
+      pushUniqueOutput('PAIR', `+${targetPhone} pairing code: ${result.pairingCode}`);
+    } catch (err) {
+      pushUniqueOutput('ERR', `Pairing failed: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  } else if (cmd === 'qr') {
+    try {
+      const qrRes = await lindaMultiSimPool.getAccountQr(primary.phoneNumber);
+      const msg = qrRes.isConnected ? 'Already connected' : qrRes.message || (qrRes.rawQr ? 'QR ready' : 'Pending');
+      pushUniqueOutput('INFO', `QR: ${msg}`);
+    } catch (err) {
+      pushUniqueOutput('ERR', `QR error: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  } else if (cmd === 's' && rest.length >= 2) {
+    const [to, ...msgParts] = rest;
+    const best = lindaMultiSimPool.getBestConnectedEngine(primary.phoneNumber);
+    if (!best) {
+      pushUniqueOutput('WARN', 'No connected WhatsApp engine. Press [1] to pair first.');
+    } else {
+      try {
+        const msgId = await best.engine.sendMessage(to, msgParts.join(' '));
+        pushUniqueOutput('SENT', `-> ${to} (id: ${msgId})`);
+      } catch (err) {
+        pushUniqueOutput('ERR', `Send failed: ${err instanceof Error ? err.message : String(err)}`);
+      }
+    }
+  } else if (cmd === 'help') {
+    pushUniqueOutput('INFO', 'Choices: [1] Pair | [2] Status | [3] Health | [4] Clear | s <phone> <msg> | sim | qr');
+  } else {
+    pushUniqueOutput('WARN', `Unknown choice "${rawCmd}". Press [5] for help.`);
+  }
+}
+
 /**
- * Interactive Linda Terminal Dashboard for `npm run dev` / `npm run dev:dashboard`.
- * Clears terminal on each restart/update, suppresses duplicate outputs, and separates Input & Output panels.
+ * Interactive Server Terminal Dashboard for `npm run dev` / `npm run dev:dashboard`.
+ * Intercepts console logs, deduplicates repeating lines, clears terminal on update, and separates Input & Output panels.
  */
 export function attachLindaInteractiveTerminal(): void {
   if (attached) return;
   attached = true;
 
+  interceptConsoleLogs();
   const primary = lindaMultiSimPool.getPrimaryAccount();
   pushUniqueOutput('SYS', `Server booted on :${process.env.PORT || '5001'} (Master +${primary.phoneNumber.replace(/\D/g, '')})`);
 
-  if (!process.stdin.isTTY) {
-    log.info('Non-TTY stdin detected; interactive keypad disabled, status logging active.');
-    return;
+  if (process.stdin.isTTY) {
+    rlInstance = readline.createInterface({
+      input: process.stdin,
+      output: process.stdout,
+      prompt: `${ANSI.red}${ANSI.bold}choice>${ANSI.reset} `,
+    });
+
+    rlInstance.on('line', async (line: string) => {
+      const t0 = Date.now();
+      const trimmed = line.trim();
+      if (!trimmed) {
+        renderDashboard();
+        return;
+      }
+      lastInputCommand = trimmed;
+      await handleCommand(trimmed);
+      lastCommandMs = Date.now() - t0;
+      renderDashboard();
+    });
   }
 
-  rlInstance = readline.createInterface({
-    input: process.stdin,
-    output: process.stdout,
-    prompt: `${ANSI.red}${ANSI.bold}linda>${ANSI.reset} `,
-  });
-
   renderDashboard();
-
-  rlInstance.on('line', async (line: string) => {
-    const t0 = Date.now();
-    const trimmed = line.trim();
-    if (!trimmed) {
-      renderDashboard();
-      return;
-    }
-
-    lastInputCommand = trimmed;
-    const [cmd, ...rest] = trimmed.split(/\s+/);
-
-    if (cmd === 'clear') {
-      uniqueOutputKeys.clear();
-      outputFeed.length = 0;
-      suppressedDuplicates = 0;
-      pushUniqueOutput('INFO', 'Output feed cleared.');
-    } else if (cmd === 'status') {
-      const accounts = lindaMultiSimPool.listPoolAccounts();
-      const online = accounts.filter(a => a.isConnected).length;
-      pushUniqueOutput('OK', `Status: ${online}/${accounts.length} SIM(s) connected.`);
-    } else if (cmd === 'health') {
-      const mem = process.memoryUsage();
-      pushUniqueOutput('SYS', `Up ${formatUptime(Date.now() - startedAt)} | RSS ${Math.round(mem.rss / 1024 / 1024)}MB | Heap ${Math.round(mem.heapUsed / 1024 / 1024)}MB | Load ${os.loadavg()[0].toFixed(2)}`);
-    } else if (cmd === 'sim') {
-      const accounts = lindaMultiSimPool.listPoolAccounts();
-      pushUniqueOutput('INFO', accounts.map(a => `${a.id}:${a.isConnected ? 'ON' : 'OFF'}(S${a.messagesSent}/R${a.messagesReceived})`).join(' | '));
-    } else if (cmd === 'mem') {
-      const mem = process.memoryUsage();
-      pushUniqueOutput('SYS', `RSS=${Math.round(mem.rss / 1024 / 1024)}MB HeapUsed=${Math.round(mem.heapUsed / 1024 / 1024)}MB HeapTotal=${Math.round(mem.heapTotal / 1024 / 1024)}MB`);
-    } else if (cmd === 'env') {
-      pushUniqueOutput('SYS', `NODE_ENV=${process.env.NODE_ENV || 'development'} PORT=${process.env.PORT || '5001'} DASHBOARD=${process.env.LINDA_TERMINAL_DASHBOARD || 'false'}`);
-    } else if (cmd === 'uptime') {
-      pushUniqueOutput('SYS', `Process uptime: ${formatUptime(Date.now() - startedAt)}`);
-    } else if (cmd === 'p') {
-      const targetPhone = (rest[0] || primary.phoneNumber).replace(/\D/g, '');
-      try {
-        const result = await lindaMultiSimPool.requestAccountPairingCode(targetPhone);
-        pushUniqueOutput('PAIR', `+${targetPhone} pairing code: ${result.pairingCode}`);
-      } catch (err) {
-        pushUniqueOutput('ERR', `Pairing failed: ${err instanceof Error ? err.message : String(err)}`);
-      }
-    } else if (cmd === 'qr') {
-      try {
-        const qrRes = await lindaMultiSimPool.getAccountQr(primary.phoneNumber);
-        const msg = qrRes.isConnected
-          ? 'Already connected'
-          : qrRes.message || (qrRes.rawQr ? 'QR ready' : 'Pending');
-        pushUniqueOutput('INFO', `QR: ${msg}`);
-      } catch (err) {
-        pushUniqueOutput('ERR', `QR error: ${err instanceof Error ? err.message : String(err)}`);
-      }
-    } else if (cmd === 's' && rest.length >= 2) {
-      const [to, ...msgParts] = rest;
-      const best = lindaMultiSimPool.getBestConnectedEngine(primary.phoneNumber);
-      if (!best) {
-        pushUniqueOutput('WARN', 'No connected WhatsApp engine. Pair first with: p');
-      } else {
-        try {
-          const msgId = await best.engine.sendMessage(to, msgParts.join(' '));
-          pushUniqueOutput('SENT', `-> ${to} (id: ${msgId})`);
-        } catch (err) {
-          pushUniqueOutput('ERR', `Send failed: ${err instanceof Error ? err.message : String(err)}`);
-        }
-      }
-    } else if (cmd === 'help') {
-      pushUniqueOutput('INFO', 'Commands: status | health | sim | mem | env | uptime | p [phone] | qr | s <phone> <msg> | clear');
-    } else if (cmd === 'q' || cmd === 'exit') {
-      pushUniqueOutput('WARN', 'Detaching interactive dashboard...');
-      rlInstance?.close();
-      rlInstance = null;
-      return;
-    } else {
-      pushUniqueOutput('WARN', `Unknown command "${cmd}". Type "help" for options.`);
-    }
-
-    lastCommandMs = Date.now() - t0;
-    renderDashboard();
-  });
 }
