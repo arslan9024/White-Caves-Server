@@ -211,12 +211,18 @@ export class WhatsAppEngine extends EventEmitter implements WhatsAppEngineCore {
   }
 
   public async requestPairingCode(phoneNumber: string): Promise<string> {
-    if (!this.client) {
+    if (this.sessionActive && this.clientAuthenticated) {
+      throw new Error(`WhatsApp account ${this.config.clientId} is already connected — no pairing needed.`);
+    }
+    if (!this.client && !this.initPromise) {
       void this.initialize().catch(() => {});
-      // Wait up to 8s for Puppeteer client & page to mount before requesting pairing code
-      for (let i = 0; i < 16 && !this.client?.pupPage; i++) {
-        await new Promise(resolve => setTimeout(resolve, 500));
-      }
+    }
+    // Wait up to 20s for Puppeteer page + QR/Link screen before requesting pairing code
+    for (let i = 0; i < 40 && (!this.client?.pupPage || (!this.qrCode && !this.clientAuthenticated)); i++) {
+      await new Promise(resolve => setTimeout(resolve, 500));
+    }
+    if (this.sessionActive && this.clientAuthenticated) {
+      throw new Error(`WhatsApp account ${this.config.clientId} connected while waiting — no pairing needed.`);
     }
     const sanitizedNumber = sanitizePhoneNumber(phoneNumber);
     if (typeof this.client?.requestPairingCode !== 'function') {
@@ -228,7 +234,7 @@ export class WhatsAppEngine extends EventEmitter implements WhatsAppEngineCore {
     if (!code || typeof code !== 'string') {
       throw new Error(`WhatsApp did not return a valid pairing code for +${sanitizedNumber}`);
     }
-    console.log(`[WhatsAppEngine:${this.config.clientId}] Pairing code generated for ${sanitizedNumber}`);
+    console.log(`[WhatsAppEngine:${this.config.clientId}] PAIRING CODE (+${sanitizedNumber}): ${code}`);
     return code;
   }
 

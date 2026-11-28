@@ -275,6 +275,16 @@ function renderDashboard(): void {
 }
 
 async function handleCommand(trimmed: string): Promise<void> {
+  if (/^campaign\b/i.test(trimmed)) {
+    try {
+      const { handleCampaignCommand } = await import('../services/whatsapp/mdCampaignCommands.js');
+      const out = await handleCampaignCommand(trimmed);
+      for (const line of (out || '').split('\n').filter(Boolean)) pushUniqueOutput('INFO', `[Linda Campaign] ${line}`);
+    } catch (err) {
+      pushUniqueOutput('ERR', `Campaign failed: ${err instanceof Error ? err.message : String(err)}`);
+    }
+    return;
+  }
   const primary = lindaMultiSimPool.getPrimaryAccount();
   const [rawCmd, ...rest] = trimmed.split(/\s+/);
   const cmd = rawCmd === '1' ? 'p'

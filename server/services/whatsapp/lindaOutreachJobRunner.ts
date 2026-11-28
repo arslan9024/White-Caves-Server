@@ -232,9 +232,8 @@ export function startLindaPairedSessionAutoReconnect(): void {
   const accounts = lindaMultiSimPool.listPoolAccounts();
   const autoReconnectAll = process.env.LINDA_AUTO_RECONNECT_HUNTERS === 'true';
   const candidates = accounts.filter(acc => {
-    if (!hasSavedLocalAuthProfile(acc.phoneNumber)) return false;
     if (normalizePhoneDigits(acc.phoneNumber) === normalizePhoneDigits(PRIMARY_MASTER_PHONE)) return true;
-    return autoReconnectAll;
+    return autoReconnectAll && hasSavedLocalAuthProfile(acc.phoneNumber);
   });
 
   if (candidates.length === 0) {
@@ -251,27 +250,26 @@ export function startLindaPairedSessionAutoReconnect(): void {
         try {
           cleanStaleChromiumLocks(acc.phoneNumber);
           log.info(`Auto-reconnecting saved Linda WhatsApp session ${acc.phoneNumber} (${acc.displayName})...`);
-          await lindaMultiSimPool.connectAccount(acc.phoneNumber);
-          if (normalizePhoneDigits(acc.phoneNumber) === normalizePhoneDigits(PRIMARY_MASTER_PHONE)) {
-            const pool = lindaMultiSimPool.listPoolAccounts();
-            const master = pool.find(
-              p => normalizePhoneDigits(p.phoneNumber) === normalizePhoneDigits(PRIMARY_MASTER_PHONE)
-            );
-            if (master && !master.isConnected) {
+          const isPrimary = normalizePhoneDigits(acc.phoneNumber) === normalizePhoneDigits(PRIMARY_MASTER_PHONE);
+          if (isPrimary) {
+            const primaryEngine = lindaMultiSimPool.getEngineForAccount(acc);
+            primaryEngine.once('qr', () => {
               setTimeout(() => {
+                if (primaryEngine.isConnected()) return;
                 void lindaMultiSimPool
                   .requestAccountPairingCode(acc.phoneNumber)
                   .then(pairing => {
                     if (pairing?.pairingCode) {
-                      log.info(`🔑 PRIMARY MASTER PAIRING CODE (${acc.phoneNumber}): ${pairing.pairingCode}`);
+                      log.info(`🔑 PRIMARY MASTER PAIRING CODE (${acc.phoneNumber}): ${pairing.pairingCode} — Enter in WhatsApp → Linked Devices → Link with phone number`);
                     }
                   })
-                  .catch(() => {
-                    // Silent fallback: user can run `pair <phoneOrSimId>` in dashboard
+                  .catch(err => {
+                    log.warn(`Primary Master auto-pairing code failed (${acc.phoneNumber}): ${err instanceof Error ? err.message : String(err)}. Press [1] in Terminal Dashboard to retry.`);
                   });
-              }, 6000);
-            }
+              }, 1500).unref?.();
+            });
           }
+          await lindaMultiSimPool.connectAccount(acc.phoneNumber);
         } catch (err) {
           log.warn(`Auto-reconnect failed for ${acc.phoneNumber}:`, err instanceof Error ? err.message : err);
         }

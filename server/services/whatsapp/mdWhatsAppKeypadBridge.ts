@@ -1,5 +1,6 @@
 import type { WhatsAppEngine } from './engine/whatsAppEngineCore.js';
 import { routeMdAgentOrKeypadCommand } from './mdWhatsAppAgentRouter.js';
+import { handleCampaignCommand } from './mdCampaignCommands.js';
 import { handleMdPairingRequest, normalizeMdPhoneDigits } from './mdWhatsAppPairingHandler.js';
 
 const MD_AUTHORIZED_DIGITS = new Set([
@@ -27,7 +28,7 @@ export async function handleMdWhatsAppCommand(
   const trimmed = body.trim();
   const reply = trimmed.toLowerCase().startsWith('pair ')
     ? await handleMdPairingRequest(trimmed.slice(5).trim())
-    : await routeMdAgentOrKeypadCommand(trimmed);
+    : (await handleCampaignCommand(trimmed)) ?? (await routeMdAgentOrKeypadCommand(trimmed));
 
   if (!reply) {
     return false;
