@@ -27,12 +27,28 @@ interface UniqueOutputEntry {
   time: string;
 }
 
+const AGENTS = ['linda', 'henry', 'daisy', 'diana', 'zoe'] as const;
+type AgentName = (typeof AGENTS)[number];
+
 const MAX_SERVER_OUTPUTS = 6;
-const MAX_LINDA_OUTPUTS = 6;
+const MAX_AGENT_OUTPUTS = 6;
 const uniqueServerKeys = new Set<string>();
-const uniqueLindaKeys = new Set<string>();
 const serverFeed: UniqueOutputEntry[] = [];
-const lindaFeed: UniqueOutputEntry[] = [];
+const agentKeys: Record<AgentName, Set<string>> = {
+  linda: new Set(),
+  henry: new Set(),
+  daisy: new Set(),
+  diana: new Set(),
+  zoe: new Set(),
+};
+const agentFeeds: Record<AgentName, UniqueOutputEntry[]> = {
+  linda: [],
+  henry: [],
+  daisy: [],
+  diana: [],
+  zoe: [],
+};
+let activeAgent: AgentName = 'linda';
 let suppressedDuplicates = 0;
 let lastInputCommand = 'None';
 let lastCommandMs = 0;
@@ -94,18 +110,23 @@ function normalizeLogMessage(raw: string): string {
     .replace(/\s+/g, ' ');
 }
 
-function isLindaLog(message: string): boolean {
-  return /linda|whatsapp|sim|qr|pairing|outreach|campaign/i.test(message);
+function detectAgentLog(message: string): AgentName | null {
+  if (/henry/i.test(message)) return 'henry';
+  if (/daisy|dasiy/i.test(message)) return 'daisy';
+  if (/diana/i.test(message)) return 'diana';
+  if (/zoe/i.test(message)) return 'zoe';
+  if (/linda|whatsapp|sim|qr|pairing|outreach|campaign/i.test(message)) return 'linda';
+  return null;
 }
 
 function pushUniqueOutput(level: OutputLevel, message: string): boolean {
   const normalized = normalizeLogMessage(message);
   if (!normalized) return false;
   const key = `${level}:${normalized}`;
-  const targetLinda = isLindaLog(normalized);
-  const keySet = targetLinda ? uniqueLindaKeys : uniqueServerKeys;
-  const feed = targetLinda ? lindaFeed : serverFeed;
-  const maxItems = targetLinda ? MAX_LINDA_OUTPUTS : MAX_SERVER_OUTPUTS;
+  const agent = detectAgentLog(normalized);
+  const keySet = agent ? agentKeys[agent] : uniqueServerKeys;
+  const feed = agent ? agentFeeds[agent] : serverFeed;
+  const maxItems = agent ? MAX_AGENT_OUTPUTS : MAX_SERVER_OUTPUTS;
 
   if (keySet.has(key)) {
     suppressedDuplicates += 1;
@@ -194,14 +215,15 @@ function renderDashboard(): void {
     }
   }
 
+  const activeFeed = agentFeeds[activeAgent];
   lines.push(divider);
   lines.push(
-    `${ANSI.green}${ANSI.bold}◆ AI LINDA OUTPUT${ANSI.reset} ${ANSI.dim}(last ${MAX_LINDA_OUTPUTS} | WhatsApp & Outreach)${ANSI.reset}`
+    `${ANSI.green}${ANSI.bold}◆ AI ${activeAgent.toUpperCase()} OUTPUT${ANSI.reset} ${ANSI.dim}(last ${MAX_AGENT_OUTPUTS} | Switch: [6] or a <name>)${ANSI.reset}`
   );
-  if (lindaFeed.length === 0) {
-    lines.push(`  ${ANSI.dim}No Linda events yet.${ANSI.reset}`);
+  if (activeFeed.length === 0) {
+    lines.push(`  ${ANSI.dim}No ${activeAgent} events yet.${ANSI.reset}`);
   } else {
-    for (const entry of lindaFeed) {
+    for (const entry of activeFeed) {
       const color = levelColor(entry.level);
       lines.push(
         `  ${ANSI.dim}${entry.time}${ANSI.reset} ${color}[${entry.level.padEnd(4)}]${ANSI.reset} ${ANSI.white}${truncate(entry.message, maxMsgLen)}${ANSI.reset}`
@@ -221,7 +243,7 @@ function renderDashboard(): void {
   );
   lines.push(divider);
   lines.push(
-    `  ${ANSI.cyan}[1]${ANSI.reset} Pair Master (+${primary.phoneNumber.replace(/\D/g, '')})  ${ANSI.cyan}[2]${ANSI.reset} Status  ${ANSI.cyan}[3]${ANSI.reset} Health  ${ANSI.cyan}[4]${ANSI.reset} Clear  ${ANSI.cyan}[5]${ANSI.reset} Help  ${ANSI.cyan}[0]${ANSI.reset} Quit`
+    `  ${ANSI.cyan}[1]${ANSI.reset} Pair  ${ANSI.cyan}[2]${ANSI.reset} Status  ${ANSI.cyan}[3]${ANSI.reset} Health  ${ANSI.cyan}[4]${ANSI.reset} Clear  ${ANSI.cyan}[5]${ANSI.reset} Help  ${ANSI.cyan}[6]${ANSI.reset} Agent:${ANSI.green}${activeAgent}${ANSI.reset}  ${ANSI.cyan}[0]${ANSI.reset} Quit`
   );
   if (rawKeypadActive) {
     lines.push(`  ${ANSI.white}Keypad:${ANSI.reset} ${ANSI.dim}Press 1-5/0 for instant action, or type command + Enter${ANSI.reset}`);
@@ -245,16 +267,29 @@ async function handleCommand(trimmed: string): Promise<void> {
     : rawCmd === '3' ? 'health'
     : rawCmd === '4' ? 'clear'
     : rawCmd === '5' ? 'help'
+    : rawCmd === '6' ? 'cycle_agent'
     : rawCmd === '0' ? 'q'
     : rawCmd;
 
-  if (cmd === 'clear') {
+  if (cmd === 'cycle_agent') {
+    const nextIdx = (AGENTS.indexOf(activeAgent) + 1) % AGENTS.length;
+    activeAgent = AGENTS[nextIdx];
+  } else if (cmd === 'a' && rest[0]) {
+    const candidate = rest[0].toLowerCase() as AgentName;
+    if (AGENTS.includes(candidate)) {
+      activeAgent = candidate;
+    } else {
+      pushUniqueOutput('WARN', `Unknown agent "${rest[0]}". Choose: ${AGENTS.join(', ')}`);
+    }
+  } else if (cmd === 'clear') {
     uniqueServerKeys.clear();
-    uniqueLindaKeys.clear();
     serverFeed.length = 0;
-    lindaFeed.length = 0;
+    for (const ag of AGENTS) {
+      agentKeys[ag].clear();
+      agentFeeds[ag].length = 0;
+    }
     suppressedDuplicates = 0;
-    pushUniqueOutput('INFO', 'Server & Linda output feeds cleared.');
+    pushUniqueOutput('INFO', 'Server & Agent output feeds cleared.');
   } else if (cmd === 'status') {
     const accounts = lindaMultiSimPool.listPoolAccounts();
     const online = accounts.filter(a => a.isConnected).length;
@@ -355,7 +390,7 @@ export function attachLindaInteractiveTerminal(): void {
         return;
       }
       // Instant single-key keypad triggers when buffer is empty
-      if (!inputBuffer && str && ['0', '1', '2', '3', '4', '5'].includes(str)) {
+      if (!inputBuffer && str && ['0', '1', '2', '3', '4', '5', '6'].includes(str)) {
         const t0 = Date.now();
         lastInputCommand = `[key ${str}]`;
         await handleCommand(str);
