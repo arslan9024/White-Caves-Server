@@ -217,9 +217,12 @@ function renderDashboard(): void {
     leftCol.push(`${ANSI.dim}1-6/0 or cmd + Enter${ANSI.reset}`);
   }
 
+  const primaryCfg = lindaMultiSimPool.getPrimaryAccount();
+  const primaryAcc = accounts.find(a => a.phoneNumber === primaryCfg.phoneNumber) || accounts[0];
+  const primaryBadge = primaryAcc?.isConnected ? `${ANSI.green}● LIVE & READY${ANSI.reset}` : `${ANSI.yellow}○ ${primaryAcc?.engineStatus || 'OFFLINE'}${ANSI.reset}`;
   const rightCol: string[] = [
     `${ANSI.cyan}${ANSI.bold}▼ OUTPUT SIDE${ANSI.reset} ${ANSI.dim}(Accounts & Server)${ANSI.reset}`,
-    `${ANSI.yellow}▸ MASTER & HUNTER ACCOUNTS${ANSI.reset} ${ANSI.dim}(${connectedCount}/${accounts.length} online)${ANSI.reset}`,
+    `${ANSI.yellow}▸ MASTER & HUNTER ACCOUNTS${ANSI.reset} ${ANSI.dim}(${connectedCount}/${accounts.length} online)${ANSI.reset} | Primary: ${primaryBadge}`,
   ];
   for (const acc of accounts) {
     const badge = acc.isConnected ? `${ANSI.green}● ONLINE ${ANSI.reset}` : `${ANSI.yellow}○ OFFLINE${ANSI.reset}`;
