@@ -45,7 +45,6 @@ export async function handleMdWhatsAppCommand(
   if (!MD_AUTHORIZED_DIGITS.has(senderDigits)) {
     return false;
   }
-  console.log(`[MD_BRIDGE] Inbound from=${fromPhone} body="${body.trim()}"`);
 
   const trimmed = body.trim();
   const lower = trimmed.toLowerCase();
