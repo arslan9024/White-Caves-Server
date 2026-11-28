@@ -31,6 +31,25 @@ const DEFAULT_10_SIM_ACCOUNTS: PoolAccountConfig[] = CANONICAL_10_SIM_FLEET.map(
   hourlyLimit: s.hourlyCap,
 }));
 
+export function savePoolAccountsConfig(accounts: PoolAccountConfig[]): void {
+  try {
+    const configPath = path.resolve(process.cwd(), 'data/app/whatsapp-accounts.json');
+    const dir = path.dirname(configPath);
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    const payload = {
+      accounts,
+      masterAccount: accounts.find(a => a.role === 'master')?.id || 'sim-01-master',
+      totalAccounts: accounts.length,
+      policy: 'Multi-Role White Caves WhatsApp Pool (Master / Employee / Servant / Hunter)',
+      lastUpdated: new Date().toISOString(),
+      version: '3.1.0',
+    };
+    fs.writeFileSync(configPath, JSON.stringify(payload, null, 2), 'utf8');
+  } catch (err) {
+    log.error('Failed saving whatsapp-accounts.json', err);
+  }
+}
+
 export function loadPoolAccountsConfig(): PoolAccountConfig[] {
   try {
     const configPath = path.resolve(process.cwd(), 'data/app/whatsapp-accounts.json');

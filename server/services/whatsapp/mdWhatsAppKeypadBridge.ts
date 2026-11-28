@@ -1,13 +1,15 @@
 import type { WhatsAppEngine } from './engine/whatsAppEngineCore.js';
 import { routeMdAgentOrKeypadCommand } from './mdWhatsAppAgentRouter.js';
 import { handleCampaignCommand } from './mdCampaignCommands.js';
-import { handleMdPairingRequest, normalizeMdPhoneDigits } from './mdWhatsAppPairingHandler.js';
+import { handleMdPairingRequest, handleMdAddAccountRequest, normalizeMdPhoneDigits } from './mdWhatsAppPairingHandler.js';
 
 const MD_AUTHORIZED_DIGITS = new Set([
+  '971505760056',
   '971589969886',
   '971503869886',
   '971505110636',
   '971553633595',
+  '971563616136',
 ]);
 
 /**
@@ -26,7 +28,9 @@ export async function handleMdWhatsAppCommand(
   }
 
   const trimmed = body.trim();
-  const reply = trimmed.toLowerCase().startsWith('pair ')
+  const reply = trimmed.toLowerCase().startsWith('add ')
+    ? await handleMdAddAccountRequest(trimmed)
+    : trimmed.toLowerCase().startsWith('pair ')
     ? await handleMdPairingRequest(trimmed.slice(5).trim())
     : (await handleCampaignCommand(trimmed)) ?? (await routeMdAgentOrKeypadCommand(trimmed));
 

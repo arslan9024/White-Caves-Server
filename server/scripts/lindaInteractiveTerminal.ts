@@ -49,7 +49,8 @@ const agentFeeds: Record<AgentName, UniqueOutputEntry[]> = {
   zoe: [],
 };
 let activeAgent: AgentName = 'linda';
-let pairingSelectMode = false;
+let pairingSelectMode: 'none' | 'category' | 'account_list' | 'manual_phone' = 'none';
+let selectedCategory: 'master' | 'employee' | 'servant' | 'all' = 'all';
 let suppressedDuplicates = 0;
 let lastInputCommand = 'None';
 let lastCommandMs = 0;
@@ -199,13 +200,34 @@ function renderDashboard(): void {
   const uptime = formatUptime(Date.now() - startedAt);
   const liveDot = tickCount % 2 === 0 ? `${ANSI.green}● LIVE${ANSI.reset}` : `${ANSI.dim}○ LIVE${ANSI.reset}`;
 
-  const leftCol: string[] = pairingSelectMode ? [
-    `${ANSI.yellow}${ANSI.bold}▲ SELECT ACCOUNT TO PAIR${ANSI.reset}`,
-    `${ANSI.cyan}[1]${ANSI.reset} Primary Master (+971505760056)`,
-    ...accounts.slice(1).map((a, idx) => `${ANSI.cyan}[${idx + 2}]${ANSI.reset} ${a.id.slice(0, 6)} (+${a.phoneNumber.replace(/\D/g, '')})`),
+  const filteredAccounts = selectedCategory === 'all'
+    ? accounts
+    : accounts.filter(a => a.role === selectedCategory);
+
+  const leftCol: string[] = pairingSelectMode === 'category' ? [
+    `${ANSI.yellow}${ANSI.bold}▲ SELECT ROLE CATEGORY${ANSI.reset}`,
+    `${ANSI.cyan}[1]${ANSI.reset} Master Closers`,
+    `${ANSI.cyan}[2]${ANSI.reset} Employees (Agents)`,
+    `${ANSI.cyan}[3]${ANSI.reset} Hunters (Servants)`,
+    `${ANSI.cyan}[4]${ANSI.reset} All Registered Accounts`,
+    `${ANSI.cyan}[5]${ANSI.reset} + Add New Number Manually`,
     `${ANSI.cyan}[0]${ANSI.reset} Cancel / Back`,
     `${ANSI.slate}${'─'.repeat(leftW)}${ANSI.reset}`,
-    `${ANSI.dim}Enter 1-10 to pair, 0 to cancel${ANSI.reset}`,
+    `${ANSI.dim}Choose 1-5 or 0 to back${ANSI.reset}`,
+  ] : pairingSelectMode === 'account_list' ? [
+    `${ANSI.yellow}${ANSI.bold}▲ SELECT ${selectedCategory.toUpperCase()} TO PAIR${ANSI.reset}`,
+    ...filteredAccounts.map((a, idx) => `${ANSI.cyan}[${idx + 1}]${ANSI.reset} ${a.id.slice(0, 6)} (+${a.phoneNumber.replace(/\D/g, '')})`),
+    `${ANSI.cyan}[n]${ANSI.reset} + Add New ${selectedCategory.toUpperCase()}`,
+    `${ANSI.cyan}[0]${ANSI.reset} Back to Roles`,
+    `${ANSI.slate}${'─'.repeat(leftW)}${ANSI.reset}`,
+    `${ANSI.dim}1-${filteredAccounts.length}, n to add, 0 back${ANSI.reset}`,
+  ] : pairingSelectMode === 'manual_phone' ? [
+    `${ANSI.yellow}${ANSI.bold}▲ ENTER NEW ${selectedCategory.toUpperCase()} NUMBER${ANSI.reset}`,
+    `${ANSI.white}Role:${ANSI.reset} ${selectedCategory.toUpperCase()}`,
+    `${ANSI.dim}Format: 0563616136 or 971563616136${ANSI.reset}`,
+    `${ANSI.cyan}[0]${ANSI.reset} Cancel / Back`,
+    `${ANSI.slate}${'─'.repeat(leftW)}${ANSI.reset}`,
+    `${ANSI.red}${ANSI.bold}phone>${ANSI.reset} ${ANSI.white}${inputBuffer}${ANSI.reset}`,
   ] : [
     `${ANSI.red}${ANSI.bold}▲ INPUT SIDE${ANSI.reset} ${ANSI.dim}(${lastCommandMs}ms)${ANSI.reset}`,
     `${ANSI.cyan}[1]${ANSI.reset} Pair   ${ANSI.cyan}[4]${ANSI.reset} Clear`,
@@ -219,8 +241,8 @@ function renderDashboard(): void {
     `${ANSI.slate}${'─'.repeat(leftW)}${ANSI.reset}`,
     `${ANSI.white}SIMs:${ANSI.reset} ${accounts.map(a => `${a.isConnected ? ANSI.green + '●' : ANSI.yellow + '○'}${ANSI.reset}${a.id.slice(0, 4)}`).join(' ')}`,
   ];
-  if (pairingSelectMode) {
-    // Already has instructions in leftCol
+  if (pairingSelectMode !== 'none') {
+    // Left column handles menu states
   } else if (rawKeypadActive) {
     leftCol.push(`${ANSI.red}${ANSI.bold}input>${ANSI.reset} ${ANSI.white}${inputBuffer}${ANSI.reset}`);
   } else {
@@ -287,16 +309,63 @@ function renderDashboard(): void {
 async function handleCommand(trimmed: string): Promise<void> {
   const accounts = lindaMultiSimPool.listPoolAccounts();
 
-  if (pairingSelectMode) {
+  // Mode 1: Select role category
+  if (pairingSelectMode === 'category') {
     if (trimmed === '0' || trimmed.toLowerCase() === 'cancel' || trimmed.toLowerCase() === 'q') {
-      pairingSelectMode = false;
+      pairingSelectMode = 'none';
       pushUniqueOutput('INFO', 'Pairing selection cancelled.');
       return;
     }
+    if (trimmed === '1') {
+      selectedCategory = 'master';
+      pairingSelectMode = 'account_list';
+      pushUniqueOutput('INFO', 'Master Closers category selected.');
+      return;
+    }
+    if (trimmed === '2') {
+      selectedCategory = 'employee';
+      pairingSelectMode = 'account_list';
+      pushUniqueOutput('INFO', 'Employees / Agents category selected.');
+      return;
+    }
+    if (trimmed === '3') {
+      selectedCategory = 'servant';
+      pairingSelectMode = 'account_list';
+      pushUniqueOutput('INFO', 'Hunters / Servants category selected.');
+      return;
+    }
+    if (trimmed === '4') {
+      selectedCategory = 'all';
+      pairingSelectMode = 'account_list';
+      pushUniqueOutput('INFO', 'All accounts category selected.');
+      return;
+    }
+    if (trimmed === '5') {
+      selectedCategory = 'master';
+      pairingSelectMode = 'manual_phone';
+      pushUniqueOutput('INFO', 'Enter phone number for new Master account:');
+      return;
+    }
+    pushUniqueOutput('WARN', 'Choose [1] Master | [2] Employee | [3] Hunter | [4] All | [5] Manual | [0] Cancel');
+    return;
+  }
+
+  // Mode 2: Select account to pair from list
+  if (pairingSelectMode === 'account_list') {
+    if (trimmed === '0' || trimmed.toLowerCase() === 'back') {
+      pairingSelectMode = 'category';
+      return;
+    }
+    if (trimmed.toLowerCase() === 'n' || trimmed.toLowerCase() === 'add') {
+      pairingSelectMode = 'manual_phone';
+      pushUniqueOutput('INFO', `Enter phone number for new ${selectedCategory.toUpperCase()} account:`);
+      return;
+    }
+    const filtered = selectedCategory === 'all' ? accounts : accounts.filter(a => a.role === selectedCategory);
     const selectedIdx = parseInt(trimmed, 10);
-    if (!Number.isNaN(selectedIdx) && selectedIdx >= 1 && selectedIdx <= accounts.length) {
-      pairingSelectMode = false;
-      const targetAcc = accounts[selectedIdx - 1];
+    if (!Number.isNaN(selectedIdx) && selectedIdx >= 1 && selectedIdx <= filtered.length) {
+      pairingSelectMode = 'none';
+      const targetAcc = filtered[selectedIdx - 1];
       const targetPhone = targetAcc.phoneNumber.replace(/\D/g, '');
       pushUniqueOutput('INFO', `Requesting pairing code for [${targetAcc.id}] +${targetPhone}...`);
       try {
@@ -307,7 +376,41 @@ async function handleCommand(trimmed: string): Promise<void> {
       }
       return;
     }
-    pushUniqueOutput('WARN', `Invalid selection "${trimmed}". Choose 1-${accounts.length} or 0 to cancel.`);
+    pushUniqueOutput('WARN', `Invalid selection "${trimmed}". Choose 1-${filtered.length}, "n" to add, or "0" back.`);
+    return;
+  }
+
+  // Mode 3: Manual phone entry
+  if (pairingSelectMode === 'manual_phone') {
+    if (trimmed === '0' || trimmed.toLowerCase() === 'cancel') {
+      pairingSelectMode = 'category';
+      return;
+    }
+    const cleanDigits = trimmed.replace(/[:@].*/, '').replace(/\D/g, '');
+    const normalizedDigits = cleanDigits.startsWith('05') && cleanDigits.length === 10
+      ? `971${cleanDigits.slice(1)}`
+      : cleanDigits;
+
+    if (!normalizedDigits || normalizedDigits.length < 9) {
+      pushUniqueOutput('WARN', `Invalid phone "${trimmed}". Enter e.g. 0563616136 or 971563616136 (or 0 to cancel)`);
+      return;
+    }
+
+    pairingSelectMode = 'none';
+    const role = selectedCategory === 'all' ? 'master' : selectedCategory;
+    const added = lindaMultiSimPool.addAccount({
+      phoneNumber: normalizedDigits,
+      role,
+      displayName: `${role === 'master' ? 'Master Closer' : role === 'employee' ? 'Employee Agent' : 'Hunter'} (+${normalizedDigits})`,
+    });
+    pushUniqueOutput('OK', `✓ Added [${added.id}] +${normalizedDigits} as ${role.toUpperCase()}. Requesting code...`);
+
+    try {
+      const result = await lindaMultiSimPool.requestAccountPairingCode(normalizedDigits);
+      pushUniqueOutput('PAIR', `🔑 [${added.id}] +${normalizedDigits} PAIRING CODE: ${result.pairingCode}`);
+    } catch (err) {
+      pushUniqueOutput('ERR', `Pairing failed for +${normalizedDigits}: ${err instanceof Error ? err.message : String(err)}`);
+    }
     return;
   }
 
@@ -333,8 +436,8 @@ async function handleCommand(trimmed: string): Promise<void> {
     : rawCmd;
 
   if (cmd === 'pair_menu') {
-    pairingSelectMode = true;
-    pushUniqueOutput('INFO', `Select SIM line to pair (1: Primary Master, 2-${accounts.length}: Hunter SIMs, 0: Cancel).`);
+    pairingSelectMode = 'category';
+    pushUniqueOutput('INFO', 'Select Role: [1] Master | [2] Employee | [3] Hunter | [4] All | [5] + Add Number');
   } else if (cmd === 'cycle_agent') {
     const nextIdx = (AGENTS.indexOf(activeAgent) + 1) % AGENTS.length;
     activeAgent = AGENTS[nextIdx];
@@ -456,6 +559,10 @@ export function attachLindaInteractiveTerminal(): void {
       }
       if (key?.name === 'escape') {
         inputBuffer = '';
+        if (pairingSelectMode !== 'none') {
+          pairingSelectMode = 'none';
+          pushUniqueOutput('INFO', 'Menu reset.');
+        }
         renderDashboard();
         return;
       }
@@ -476,8 +583,8 @@ export function attachLindaInteractiveTerminal(): void {
         renderDashboard();
         return;
       }
-      // Instant single-key keypad triggers when buffer is empty (skip in pairing select mode so user can type 10)
-      if (!pairingSelectMode && !inputBuffer && str && ['0', '1', '2', '3', '4', '5', '6'].includes(str)) {
+      // Instant single-key keypad triggers when buffer is empty (skip in pairing select mode so user can type phone or multi-digits)
+      if (pairingSelectMode === 'none' && !inputBuffer && str && ['0', '1', '2', '3', '4', '5', '6'].includes(str)) {
         const t0 = Date.now();
         lastInputCommand = `[key ${str}]`;
         await handleCommand(str);

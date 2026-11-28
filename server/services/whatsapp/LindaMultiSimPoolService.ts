@@ -13,7 +13,7 @@ import {
   DH2_CLUSTERS, DH2_LANDLORD_TEMPLATES, processLandlordAvailabilityReply, routeInboundTenantViewingInquiry,
 } from './dh2LandlordReplyVaultSync.js';
 import {
-  isPrimaryMasterAccount, loadPoolAccountsConfig, normalizePhoneDigits, type PoolAccountConfig,
+  isPrimaryMasterAccount, loadPoolAccountsConfig, savePoolAccountsConfig, normalizePhoneDigits, type PoolAccountConfig,
 } from './lindaPoolAccountsConfig.js';
 export { DH2_CLUSTERS, DH2_LANDLORD_TEMPLATES, normalizePhoneDigits, type PoolAccountConfig };
 import { LINDA_SESSIONS_PATH, LINDA_HEADLESS } from '../../config/env.js';
@@ -58,6 +58,47 @@ class LindaMultiSimPoolService {
 
   public getPrimaryAccount(): PoolAccountConfig {
     return this.accounts.find(a => isPrimaryMasterAccount(a)) || this.accounts[0];
+  }
+
+  public addAccount(input: {
+    phoneNumber: string;
+    role?: 'master' | 'employee' | 'servant';
+    displayName?: string;
+    hourlyLimit?: number;
+  }): PoolAccountConfig {
+    const cleanPhone = normalizePhoneDigits(input.phoneNumber);
+    if (!cleanPhone || cleanPhone.length < 9) {
+      throw new Error(`Invalid phone number: ${input.phoneNumber}`);
+    }
+    const fullPhone = cleanPhone.startsWith('971') ? `+${cleanPhone}` : `+971${cleanPhone.replace(/^0+/, '')}`;
+    const cleanFullDigits = normalizePhoneDigits(fullPhone);
+
+    const existing = this.findAccount(cleanFullDigits);
+    if (existing) {
+      if (input.role) existing.role = input.role;
+      if (input.displayName) existing.displayName = input.displayName;
+      savePoolAccountsConfig(this.accounts);
+      return existing;
+    }
+
+    const role = input.role || 'master';
+    const isMaster = role === 'master';
+    const nextIdx = this.accounts.length + 1;
+    const rolePrefix = isMaster ? 'master' : role === 'employee' ? 'emp' : 'sim';
+    const id = `${rolePrefix}-${String(nextIdx).padStart(2, '0')}`;
+    const newAccount: PoolAccountConfig = {
+      id,
+      phoneNumber: fullPhone,
+      sessionId: `session-${cleanFullDigits}`,
+      displayName: input.displayName || `${isMaster ? 'Master' : role === 'employee' ? 'Employee' : 'Hunter'} (+${cleanFullDigits})`,
+      role,
+      simTier: isMaster ? 'PRIMARY_MASTER_CLOSER' : 'HUNTER_OUTREACH',
+      hourlyLimit: input.hourlyLimit || (isMaster ? 25 : 18),
+    };
+
+    this.accounts.push(newAccount);
+    savePoolAccountsConfig(this.accounts);
+    return newAccount;
   }
 
   public getBestConnectedEngine(preferredAccount?: string): { account: PoolAccountConfig; engine: WhatsAppEngine } | null {
