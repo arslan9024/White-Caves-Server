@@ -16,9 +16,10 @@ const MD_AUTHORIZED_DIGITS = new Set([
 export async function handleMdWhatsAppCommand(
   engine: WhatsAppEngine,
   fromPhone: string,
-  body: string
+  body: string,
+  senderPhone?: string
 ): Promise<boolean> {
-  const senderDigits = normalizeMdPhoneDigits(fromPhone);
+  const senderDigits = normalizeMdPhoneDigits(senderPhone || fromPhone);
   if (!MD_AUTHORIZED_DIGITS.has(senderDigits)) {
     return false;
   }

@@ -5,6 +5,8 @@ export interface WhatsAppMessage {
   body: string;
   timestamp: Date;
   isFromMe: boolean;
+  /** Real sender phone digits resolved via getContact() (WhatsApp may send `from` as an opaque @lid id). */
+  senderPhone?: string;
   hasMedia: boolean;
   type: 'text' | 'image' | 'document' | 'audio' | 'video';
 }

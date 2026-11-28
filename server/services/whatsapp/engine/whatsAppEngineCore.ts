@@ -191,6 +191,12 @@ export class WhatsAppEngine extends EventEmitter implements WhatsAppEngineCore {
   private async handleIncomingMessage(message: unknown): Promise<void> {
     try {
       const wrapped = normalizeIncomingMessage(message);
+      try {
+        const contact = await (message as { getContact?: () => Promise<{ number?: string }> }).getContact?.();
+        if (contact?.number) wrapped.senderPhone = contact.number;
+      } catch {
+        // contact lookup is best-effort
+      }
       if (this.messageQueue.length >= 500) {
         this.messageQueue.shift();
       }

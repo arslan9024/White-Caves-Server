@@ -87,9 +87,9 @@ class LindaMultiSimPoolService {
     });
     if (!this.attachedInbound.has(digits)) {
       this.attachedInbound.add(digits);
-      engine.on('message', (msg: { from?: string; body?: string; isFromMe?: boolean }) => {
+      engine.on('message', (msg: { from?: string; body?: string; isFromMe?: boolean; senderPhone?: string }) => {
         if (!msg.isFromMe && msg.from && msg.body) {
-          void this.handleInboundWhatsAppMessage(account, msg.from, msg.body).catch(err =>
+          void this.handleInboundWhatsAppMessage(account, msg.from, msg.body, msg.senderPhone).catch(err =>
             log.warn('Inbound WhatsApp routing error', err)
           );
         }
@@ -98,11 +98,11 @@ class LindaMultiSimPoolService {
     return engine;
   }
 
-  private async handleInboundWhatsAppMessage(account: PoolAccountConfig, fromPhone: string, body: string) {
+  private async handleInboundWhatsAppMessage(account: PoolAccountConfig, fromPhone: string, body: string, senderPhone?: string) {
     if (isPrimaryMasterAccount(account)) {
       const { handleMdWhatsAppCommand } = await import('./mdWhatsAppKeypadBridge.js');
       const engine = this.getEngineForAccount(account);
-      if (await handleMdWhatsAppCommand(engine, fromPhone, body)) {
+      if (await handleMdWhatsAppCommand(engine, fromPhone, body, senderPhone)) {
         return { handledByMdBridge: true };
       }
     }
