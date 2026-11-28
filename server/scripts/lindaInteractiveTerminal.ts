@@ -14,6 +14,7 @@ const ANSI = {
   green: '\x1b[32m',
   yellow: '\x1b[33m',
   cyan: '\x1b[36m',
+  magenta: '\x1b[35m',
   clearScreen: '\x1Bc',             // Full terminal reset on each update
 };
 
@@ -32,6 +33,8 @@ const outputFeed: UniqueOutputEntry[] = [];
 let suppressedDuplicates = 0;
 let lastInputCommand = 'None';
 let lastCommandMs = 0;
+let inputBuffer = '';
+let rawKeypadActive = false;
 let rlInstance: readline.Interface | null = null;
 let renderTimer: NodeJS.Timeout | null = null;
 const startedAt = Date.now();
@@ -182,19 +185,28 @@ function renderDashboard(): void {
 
   lines.push('');
   lines.push(
+    `${ANSI.magenta}${ANSI.bold}◆ NODEMON / WATCHER PANEL${ANSI.reset} ${ANSI.slate}|${ANSI.reset} Booted: ${ANSI.white}${new Date(startedAt).toLocaleTimeString('en-GB', { hour12: false })}${ANSI.reset} ${ANSI.slate}|${ANSI.reset} Watch: ${ANSI.white}server, prisma, src${ANSI.reset} ${ANSI.slate}|${ANSI.reset} Signal: ${ANSI.cyan}SIGTERM${ANSI.reset}`
+  );
+  lines.push(divider);
+
+  lines.push('');
+  lines.push(
     `${ANSI.red}${ANSI.bold}▲ INPUT DASHBOARD${ANSI.reset} ${ANSI.slate}|${ANSI.reset} Last: ${ANSI.yellow}${truncate(lastInputCommand, 24)}${ANSI.reset} ${ANSI.dim}(${lastCommandMs}ms)${ANSI.reset}`
   );
   lines.push(divider);
   lines.push(
-    `  ${ANSI.cyan}[1]${ANSI.reset} Pair Master (+${primary.phoneNumber.replace(/\D/g, '')})  ${ANSI.cyan}[2]${ANSI.reset} Status  ${ANSI.cyan}[3]${ANSI.reset} Health  ${ANSI.cyan}[4]${ANSI.reset} Clear  ${ANSI.cyan}[5]${ANSI.reset} Help`
+    `  ${ANSI.cyan}[1]${ANSI.reset} Pair Master (+${primary.phoneNumber.replace(/\D/g, '')})  ${ANSI.cyan}[2]${ANSI.reset} Status  ${ANSI.cyan}[3]${ANSI.reset} Health  ${ANSI.cyan}[4]${ANSI.reset} Clear  ${ANSI.cyan}[5]${ANSI.reset} Help  ${ANSI.cyan}[0]${ANSI.reset} Quit`
   );
-  if (!process.stdin.isTTY) {
-    lines.push(`  ${ANSI.dim}(Non-TTY stdin: interactive choices disabled; Output Dashboard live)${ANSI.reset}`);
+  if (rawKeypadActive) {
+    lines.push(`  ${ANSI.white}Keypad:${ANSI.reset} ${ANSI.dim}Press 1-5/0 for instant action, or type command + Enter${ANSI.reset}`);
+    lines.push(`  ${ANSI.red}${ANSI.bold}input>${ANSI.reset} ${ANSI.white}${inputBuffer}${ANSI.reset}`);
+  } else if (!process.stdin.isTTY) {
+    lines.push(`  ${ANSI.dim}(Non-TTY stdin: interactive keypad disabled; Output Dashboard live)${ANSI.reset}`);
   }
   lines.push(divider);
 
   rawStdoutWrite(lines.join('\n') + '\n');
-  if (rlInstance) {
+  if (rlInstance && !rawKeypadActive) {
     rlInstance.prompt(true);
   }
 }
@@ -207,6 +219,7 @@ async function handleCommand(trimmed: string): Promise<void> {
     : rawCmd === '3' ? 'health'
     : rawCmd === '4' ? 'clear'
     : rawCmd === '5' ? 'help'
+    : rawCmd === '0' ? 'q'
     : rawCmd;
 
   if (cmd === 'clear') {
@@ -273,24 +286,79 @@ export function attachLindaInteractiveTerminal(): void {
   pushUniqueOutput('SYS', `Server booted on :${process.env.PORT || '5001'} (Master +${primary.phoneNumber.replace(/\D/g, '')})`);
 
   if (process.stdin.isTTY) {
-    rlInstance = readline.createInterface({
-      input: process.stdin,
-      output: process.stdout,
-      prompt: `${ANSI.red}${ANSI.bold}choice>${ANSI.reset} `,
-    });
-
-    rlInstance.on('line', async (line: string) => {
-      const t0 = Date.now();
-      const trimmed = line.trim();
-      if (!trimmed) {
-        renderDashboard();
-        return;
+    try {
+      readline.emitKeypressEvents(process.stdin);
+      if (typeof process.stdin.setRawMode === 'function') {
+        process.stdin.setRawMode(true);
+        rawKeypadActive = true;
       }
-      lastInputCommand = trimmed;
-      await handleCommand(trimmed);
-      lastCommandMs = Date.now() - t0;
-      renderDashboard();
-    });
+    } catch {
+      rawKeypadActive = false;
+    }
+
+    if (rawKeypadActive) {
+      process.stdin.resume();
+      process.stdin.on('keypress', async (str: string, key: readline.Key) => {
+        if (key?.ctrl && key.name === 'c') {
+          process.stdin.setRawMode?.(false);
+          process.exit(0);
+        }
+        if (key?.name === 'escape') {
+          inputBuffer = '';
+          renderDashboard();
+          return;
+        }
+        if (key?.name === 'backspace') {
+          inputBuffer = inputBuffer.slice(0, -1);
+          renderDashboard();
+          return;
+        }
+        if (key?.name === 'return' || key?.name === 'enter') {
+          const trimmed = inputBuffer.trim();
+          inputBuffer = '';
+          if (trimmed) {
+            const t0 = Date.now();
+            lastInputCommand = trimmed;
+            await handleCommand(trimmed);
+            lastCommandMs = Date.now() - t0;
+          }
+          renderDashboard();
+          return;
+        }
+        // Instant single-key keypad triggers when buffer is empty
+        if (!inputBuffer && str && ['0', '1', '2', '3', '4', '5'].includes(str)) {
+          const t0 = Date.now();
+          lastInputCommand = `[key ${str}]`;
+          await handleCommand(str);
+          lastCommandMs = Date.now() - t0;
+          renderDashboard();
+          return;
+        }
+        if (str && !key?.ctrl && !key?.meta) {
+          inputBuffer += str;
+          renderDashboard();
+        }
+      });
+    } else {
+      rlInstance = readline.createInterface({
+        input: process.stdin,
+        output: process.stdout,
+        prompt: `${ANSI.red}${ANSI.bold}choice>${ANSI.reset} `,
+      });
+
+      rlInstance.on('line', async (line: string) => {
+        const t0 = Date.now();
+        const trimmed = line.trim();
+        if (!trimmed) {
+          renderDashboard();
+          return;
+        }
+        lastInputCommand = trimmed;
+        await handleCommand(trimmed);
+        lastCommandMs = Date.now() - t0;
+        renderDashboard();
+      });
+    }
   }
 
   renderDashboard();
