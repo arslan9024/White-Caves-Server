@@ -174,10 +174,20 @@ function interceptConsoleLogs(): void {
   };
 }
 
+function stripAnsi(str: string): string {
+  return str.replace(/\x1b\[[0-9;]*m/g, '');
+}
+
+function padAnsi(str: string, width: number): string {
+  const visible = stripAnsi(str).length;
+  return visible >= width ? str : str + ' '.repeat(width - visible);
+}
+
 function renderDashboard(): void {
-  const width = getTermWidth();
+  const width = Math.max(88, Math.min(process.stdout.columns || 110, 128));
+  const colGap = ' │ ';
+  const leftW = Math.floor((width - 3) * 0.58);
   const divider = `${ANSI.slate}${'─'.repeat(width)}${ANSI.reset}`;
-  const primary = lindaMultiSimPool.getPrimaryAccount();
   const accounts = lindaMultiSimPool.listPoolAccounts();
   const connectedCount = accounts.filter(a => a.isConnected).length;
   const totalSent = accounts.reduce((sum, a) => sum + a.messagesSent, 0);
@@ -185,78 +195,59 @@ function renderDashboard(): void {
   const memMb = Math.round(process.memoryUsage().rss / 1024 / 1024);
   const port = process.env.PORT || '5001';
   const uptime = formatUptime(Date.now() - startedAt);
-
   const liveDot = tickCount % 2 === 0 ? `${ANSI.green}● LIVE${ANSI.reset}` : `${ANSI.dim}○ LIVE${ANSI.reset}`;
+
+  const leftCol: string[] = [
+    `${ANSI.cyan}${ANSI.bold}▼ OUTPUT SIDE${ANSI.reset} ${ANSI.dim}(Server & AI Agents)${ANSI.reset}`,
+    `${ANSI.cyan}▸ WHITE CAVES SERVER${ANSI.reset} ${ANSI.dim}(${suppressedDuplicates} dupes suppressed)${ANSI.reset}`,
+  ];
+  const maxLeftMsg = Math.max(20, leftW - 16);
+  if (serverFeed.length === 0) {
+    leftCol.push(`  ${ANSI.dim}No server events yet.${ANSI.reset}`);
+  } else {
+    for (const entry of serverFeed) {
+      leftCol.push(`${ANSI.dim}${entry.time}${ANSI.reset} ${levelColor(entry.level)}[${entry.level.padEnd(4)}]${ANSI.reset} ${ANSI.white}${truncate(entry.message, maxLeftMsg)}${ANSI.reset}`);
+    }
+  }
+  leftCol.push(`${ANSI.green}▸ AI ${activeAgent.toUpperCase()} OUTPUT${ANSI.reset} ${ANSI.dim}([6] switch)${ANSI.reset}`);
+  const activeFeed = agentFeeds[activeAgent];
+  if (activeFeed.length === 0) {
+    leftCol.push(`  ${ANSI.dim}No ${activeAgent} events yet.${ANSI.reset}`);
+  } else {
+    for (const entry of activeFeed) {
+      leftCol.push(`${ANSI.dim}${entry.time}${ANSI.reset} ${levelColor(entry.level)}[${entry.level.padEnd(4)}]${ANSI.reset} ${ANSI.white}${truncate(entry.message, maxLeftMsg)}${ANSI.reset}`);
+    }
+  }
+
+  const rightCol: string[] = [
+    `${ANSI.red}${ANSI.bold}▲ INPUT SIDE${ANSI.reset} ${ANSI.dim}(Last: ${truncate(lastInputCommand, 14)} ${lastCommandMs}ms)${ANSI.reset}`,
+    `${ANSI.cyan}[1]${ANSI.reset} Pair Master   ${ANSI.cyan}[4]${ANSI.reset} Clear`,
+    `${ANSI.cyan}[2]${ANSI.reset} Status        ${ANSI.cyan}[5]${ANSI.reset} Help`,
+    `${ANSI.cyan}[3]${ANSI.reset} Health        ${ANSI.cyan}[6]${ANSI.reset} Agent:${ANSI.green}${activeAgent}${ANSI.reset}`,
+    `${ANSI.cyan}[0]${ANSI.reset} Quit          ${ANSI.dim}s <phone> <msg>${ANSI.reset}`,
+    `${ANSI.magenta}${ANSI.bold}◆ NODEMON / WATCHER${ANSI.reset}`,
+    `  Boot: ${ANSI.white}${new Date(startedAt).toLocaleTimeString('en-GB', { hour12: false })}${ANSI.reset} | ${ANSI.cyan}SIGTERM${ANSI.reset}`,
+    `  Watch: ${ANSI.dim}server, prisma, src${ANSI.reset}`,
+    `${ANSI.white}SIMs:${ANSI.reset} ${accounts.map(a => `${a.isConnected ? ANSI.green + '●' : ANSI.yellow + '○'}${ANSI.reset}${a.id.slice(0, 6)}`).join(' ')}`,
+  ];
+  if (rawKeypadActive) {
+    rightCol.push(`${ANSI.red}${ANSI.bold}input>${ANSI.reset} ${ANSI.white}${inputBuffer}${ANSI.reset}`);
+  } else {
+    rightCol.push(`${ANSI.dim}Type 1-6/0 or cmd + Enter${ANSI.reset}`);
+  }
 
   const lines: string[] = [
     ANSI.clearScreen,
     `${ANSI.red}${ANSI.bold}╔${'═'.repeat(width - 2)}╗${ANSI.reset}`,
-    `${ANSI.red}${ANSI.bold}║${ANSI.reset}  ${ANSI.white}${ANSI.bold}WHITE CAVES SERVER — TERMINAL DASHBOARD${ANSI.reset} ${liveDot} ${ANSI.dim}(:${port} | ${process.version} | PID ${process.pid})${ANSI.reset}`,
+    `${ANSI.red}${ANSI.bold}║${ANSI.reset} ${ANSI.white}${ANSI.bold}WHITE CAVES SERVER${ANSI.reset} ${liveDot} ${ANSI.dim}:${port} | Up ${uptime} | ${memMb}MB | SIMs ${connectedCount}/${accounts.length} | S:${totalSent} R:${totalRecv}${ANSI.reset}`,
     `${ANSI.red}${ANSI.bold}╚${'═'.repeat(width - 2)}╝${ANSI.reset}`,
-    `${ANSI.cyan}${ANSI.bold}▼ OUTPUT DASHBOARD${ANSI.reset} ${ANSI.slate}|${ANSI.reset} Up: ${ANSI.white}${uptime}${ANSI.reset} ${ANSI.slate}|${ANSI.reset} RAM: ${ANSI.white}${memMb}MB${ANSI.reset} ${ANSI.slate}|${ANSI.reset} SIMs: ${ANSI.green}${connectedCount}/${accounts.length}${ANSI.reset} ${ANSI.slate}|${ANSI.reset} S:${ANSI.white}${totalSent}${ANSI.reset} R:${ANSI.white}${totalRecv}${ANSI.reset} ${ANSI.slate}|${ANSI.reset} Last: ${ANSI.dim}${lastEventTime}${ANSI.reset}`,
-    divider,
   ];
 
-  for (const acc of accounts) {
-    const connBadge = acc.isConnected
-      ? `${ANSI.green}● ONLINE ${ANSI.reset}`
-      : `${ANSI.yellow}○ OFFLINE${ANSI.reset}`;
-    lines.push(
-      `  ${ANSI.white}${acc.id.padEnd(10)}${ANSI.reset} ${ANSI.slate}+${acc.phoneNumber.padEnd(14)}${ANSI.reset} ${connBadge} ${ANSI.dim}[${acc.engineStatus}]${ANSI.reset}`
-    );
-  }
-
-  const maxMsgLen = Math.max(24, width - 20);
-  lines.push(divider);
-  lines.push(
-    `${ANSI.cyan}${ANSI.bold}▼ WHITE CAVES SERVER OUTPUT${ANSI.reset} ${ANSI.dim}(last ${MAX_SERVER_OUTPUTS} | ${suppressedDuplicates} dupes suppressed)${ANSI.reset}`
-  );
-  if (serverFeed.length === 0) {
-    lines.push(`  ${ANSI.dim}No server events yet.${ANSI.reset}`);
-  } else {
-    for (const entry of serverFeed) {
-      const color = levelColor(entry.level);
-      lines.push(
-        `  ${ANSI.dim}${entry.time}${ANSI.reset} ${color}[${entry.level.padEnd(4)}]${ANSI.reset} ${ANSI.white}${truncate(entry.message, maxMsgLen)}${ANSI.reset}`
-      );
-    }
-  }
-
-  const activeFeed = agentFeeds[activeAgent];
-  lines.push(divider);
-  lines.push(
-    `${ANSI.green}${ANSI.bold}◆ AI ${activeAgent.toUpperCase()} OUTPUT${ANSI.reset} ${ANSI.dim}(last ${MAX_AGENT_OUTPUTS} | Switch: [6] or a <name>)${ANSI.reset}`
-  );
-  if (activeFeed.length === 0) {
-    lines.push(`  ${ANSI.dim}No ${activeAgent} events yet.${ANSI.reset}`);
-  } else {
-    for (const entry of activeFeed) {
-      const color = levelColor(entry.level);
-      lines.push(
-        `  ${ANSI.dim}${entry.time}${ANSI.reset} ${color}[${entry.level.padEnd(4)}]${ANSI.reset} ${ANSI.white}${truncate(entry.message, maxMsgLen)}${ANSI.reset}`
-      );
-    }
-  }
-
-  lines.push('');
-  lines.push(
-    `${ANSI.magenta}${ANSI.bold}◆ NODEMON / WATCHER PANEL${ANSI.reset} ${ANSI.slate}|${ANSI.reset} Booted: ${ANSI.white}${new Date(startedAt).toLocaleTimeString('en-GB', { hour12: false })}${ANSI.reset} ${ANSI.slate}|${ANSI.reset} Watch: ${ANSI.white}server, prisma, src${ANSI.reset} ${ANSI.slate}|${ANSI.reset} Signal: ${ANSI.cyan}SIGTERM${ANSI.reset}`
-  );
-  lines.push(divider);
-
-  lines.push('');
-  lines.push(
-    `${ANSI.red}${ANSI.bold}▲ INPUT DASHBOARD${ANSI.reset} ${ANSI.slate}|${ANSI.reset} Last: ${ANSI.yellow}${truncate(lastInputCommand, 24)}${ANSI.reset} ${ANSI.dim}(${lastCommandMs}ms)${ANSI.reset}`
-  );
-  lines.push(divider);
-  lines.push(
-    `  ${ANSI.cyan}[1]${ANSI.reset} Pair  ${ANSI.cyan}[2]${ANSI.reset} Status  ${ANSI.cyan}[3]${ANSI.reset} Health  ${ANSI.cyan}[4]${ANSI.reset} Clear  ${ANSI.cyan}[5]${ANSI.reset} Help  ${ANSI.cyan}[6]${ANSI.reset} Agent:${ANSI.green}${activeAgent}${ANSI.reset}  ${ANSI.cyan}[0]${ANSI.reset} Quit`
-  );
-  if (rawKeypadActive) {
-    lines.push(`  ${ANSI.white}Keypad:${ANSI.reset} ${ANSI.dim}Press 1-5/0 for instant action, or type command + Enter${ANSI.reset}`);
-    lines.push(`  ${ANSI.red}${ANSI.bold}input>${ANSI.reset} ${ANSI.white}${inputBuffer}${ANSI.reset}`);
-  } else {
-    lines.push(`  ${ANSI.white}Keypad:${ANSI.reset} ${ANSI.dim}Type 1-5/0 or command + Enter${ANSI.reset}`);
+  const rows = Math.max(leftCol.length, rightCol.length);
+  for (let i = 0; i < rows; i++) {
+    const l = padAnsi(leftCol[i] || '', leftW);
+    const r = rightCol[i] || '';
+    lines.push(`${l}${ANSI.slate}${colGap}${ANSI.reset}${r}`);
   }
   lines.push(divider);
 
