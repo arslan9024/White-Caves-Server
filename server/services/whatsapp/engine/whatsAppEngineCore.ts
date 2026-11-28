@@ -117,6 +117,9 @@ export class WhatsAppEngine extends EventEmitter implements WhatsAppEngineCore {
     if (!client) return;
 
     client.on('qr', (qr: string) => {
+      if (this.sessionActive || this.clientAuthenticated) {
+        return;
+      }
       console.log(`[WhatsAppEngine:${this.config.clientId}] STATE 1: QR Code generated — scan to authenticate`);
       this.clientAuthenticated = false;
       this.qrCode = qr;
