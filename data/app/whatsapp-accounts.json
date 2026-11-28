@@ -1,19 +1,108 @@
 {
   "accounts": [
-    { "id": "sim-01-master", "phoneNumber": "+971505760056", "sessionId": "session-971505760056", "displayName": "Primary Master Closer — Arslan Malik (MD)", "role": "master", "simTier": "PRIMARY_MASTER_CLOSER", "hourlyLimit": 25, "status": "ready_to_pair" },
-    { "id": "sim-02-hunter", "phoneNumber": "+971503869886", "sessionId": "session-971503869886", "displayName": "Hunter SIM 02 — DH2 Discovery", "role": "servant", "simTier": "HUNTER_OUTREACH", "hourlyLimit": 18, "status": "ready_to_pair" },
-    { "id": "sim-03-hunter", "phoneNumber": "+971505110636", "sessionId": "session-971505110636", "displayName": "Hunter SIM 03 — DH2 Discovery", "role": "servant", "simTier": "HUNTER_OUTREACH", "hourlyLimit": 18, "status": "ready_to_pair" },
-    { "id": "sim-04-hunter", "phoneNumber": "+971589969886", "sessionId": "session-971589969886", "displayName": "Hunter SIM 04 — DH2 Discovery", "role": "servant", "simTier": "HUNTER_OUTREACH", "hourlyLimit": 18, "status": "ready_to_pair" },
-    { "id": "sim-05-hunter", "phoneNumber": "+971553633595", "sessionId": "session-971553633595", "displayName": "Hunter SIM 05 — DH2 Discovery", "role": "servant", "simTier": "HUNTER_OUTREACH", "hourlyLimit": 18, "status": "ready_to_pair" },
-    { "id": "sim-06-hunter", "phoneNumber": "+971559156636", "sessionId": "session-971559156636", "displayName": "Hunter SIM 06 — DH2 Discovery", "role": "servant", "simTier": "HUNTER_OUTREACH", "hourlyLimit": 18, "status": "ready_to_pair" },
-    { "id": "sim-07-hunter", "phoneNumber": "+971505845825", "sessionId": "session-971505845825", "displayName": "Hunter SIM 07 — DH2 Discovery", "role": "servant", "simTier": "HUNTER_OUTREACH", "hourlyLimit": 18, "status": "ready_to_pair" },
-    { "id": "sim-08-hunter", "phoneNumber": "+971507160096", "sessionId": "session-971507160096", "displayName": "Hunter SIM 08 — DH2 Discovery", "role": "servant", "simTier": "HUNTER_OUTREACH", "hourlyLimit": 18, "status": "ready_to_pair" },
-    { "id": "sim-09-hunter", "phoneNumber": "+971553498722", "sessionId": "session-971553498722", "displayName": "Hunter SIM 09 — DH2 Discovery", "role": "servant", "simTier": "HUNTER_OUTREACH", "hourlyLimit": 18, "status": "ready_to_pair" },
-    { "id": "sim-10-hunter", "phoneNumber": "+971567160096", "sessionId": "session-971567160096", "displayName": "Hunter SIM 10 — DH2 Discovery", "role": "servant", "simTier": "HUNTER_OUTREACH", "hourlyLimit": 18, "status": "ready_to_pair" }
+    {
+      "id": "sim-01-master",
+      "phoneNumber": "+971505760056",
+      "sessionId": "session-971505760056",
+      "displayName": "Primary Master Closer — Arslan Malik (MD)",
+      "role": "master",
+      "simTier": "PRIMARY_MASTER_CLOSER",
+      "hourlyLimit": 25
+    },
+    {
+      "id": "sim-02-hunter",
+      "phoneNumber": "+971503869886",
+      "sessionId": "session-971503869886",
+      "displayName": "Hunter SIM 02 — DH2 Discovery",
+      "role": "servant",
+      "simTier": "HUNTER_OUTREACH",
+      "hourlyLimit": 18
+    },
+    {
+      "id": "sim-03-hunter",
+      "phoneNumber": "+971505110636",
+      "sessionId": "session-971505110636",
+      "displayName": "Hunter SIM 03 — DH2 Discovery",
+      "role": "servant",
+      "simTier": "HUNTER_OUTREACH",
+      "hourlyLimit": 18
+    },
+    {
+      "id": "sim-04-hunter",
+      "phoneNumber": "+971589969886",
+      "sessionId": "session-971589969886",
+      "displayName": "Hunter SIM 04 — DH2 Discovery",
+      "role": "servant",
+      "simTier": "HUNTER_OUTREACH",
+      "hourlyLimit": 18
+    },
+    {
+      "id": "sim-05-hunter",
+      "phoneNumber": "+971553633595",
+      "sessionId": "session-971553633595",
+      "displayName": "Hunter SIM 05 — DH2 Discovery",
+      "role": "servant",
+      "simTier": "HUNTER_OUTREACH",
+      "hourlyLimit": 18
+    },
+    {
+      "id": "sim-06-hunter",
+      "phoneNumber": "+971559156636",
+      "sessionId": "session-971559156636",
+      "displayName": "Hunter SIM 06 — DH2 Discovery",
+      "role": "servant",
+      "simTier": "HUNTER_OUTREACH",
+      "hourlyLimit": 18
+    },
+    {
+      "id": "sim-07-hunter",
+      "phoneNumber": "+971505845825",
+      "sessionId": "session-971505845825",
+      "displayName": "Hunter SIM 07 — DH2 Discovery",
+      "role": "servant",
+      "simTier": "HUNTER_OUTREACH",
+      "hourlyLimit": 18
+    },
+    {
+      "id": "sim-08-hunter",
+      "phoneNumber": "+971507160096",
+      "sessionId": "session-971507160096",
+      "displayName": "Hunter SIM 08 — DH2 Discovery",
+      "role": "servant",
+      "simTier": "HUNTER_OUTREACH",
+      "hourlyLimit": 18
+    },
+    {
+      "id": "sim-09-hunter",
+      "phoneNumber": "+971553498722",
+      "sessionId": "session-971553498722",
+      "displayName": "Hunter SIM 09 — DH2 Discovery",
+      "role": "servant",
+      "simTier": "HUNTER_OUTREACH",
+      "hourlyLimit": 18
+    },
+    {
+      "id": "sim-10-hunter",
+      "phoneNumber": "+971567160096",
+      "sessionId": "session-971567160096",
+      "displayName": "Hunter SIM 10 — DH2 Discovery",
+      "role": "servant",
+      "simTier": "HUNTER_OUTREACH",
+      "hourlyLimit": 18
+    },
+    {
+      "id": "master-11",
+      "phoneNumber": "+971563616136",
+      "sessionId": "session-971563616136",
+      "displayName": "Master Closer (+971563616136)",
+      "role": "master",
+      "simTier": "PRIMARY_MASTER_CLOSER",
+      "hourlyLimit": 25
+    }
   ],
   "masterAccount": "sim-01-master",
-  "totalAccounts": 10,
-  "policy": "1 Primary Master Closer (Follow-up & Negotiation ONLY) + 9 Hunter SIMs (Landlord Availability Discovery ONLY)",
-  "lastUpdated": "2026-11-21T06:45:00Z",
-  "version": "3.0.0"
+  "totalAccounts": 11,
+  "policy": "Multi-Role White Caves WhatsApp Pool (Master / Employee / Servant / Hunter)",
+  "lastUpdated": "2026-11-28T21:22:40.659Z",
+  "version": "3.1.0"
 }

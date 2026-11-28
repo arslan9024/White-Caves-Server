@@ -7,7 +7,11 @@ vi.mock('./mdWhatsAppPairingHandler.js', async () => {
   const actual = await vi.importActual<typeof import('./mdWhatsAppPairingHandler.js')>('./mdWhatsAppPairingHandler.js');
   return { ...actual, handleMdPairingRequest: vi.fn(async (p: string) => `CODE for ${p}`) };
 });
-vi.mock('./LindaMultiSimPoolService.js', () => ({ lindaMultiSimPool: {} }));
+vi.mock('./LindaMultiSimPoolService.js', () => ({
+  lindaMultiSimPool: {
+    findAccount: vi.fn((phone: string) => undefined),
+  },
+}));
 
 import { handleMdWhatsAppCommand } from './mdWhatsAppKeypadBridge.js';
 
