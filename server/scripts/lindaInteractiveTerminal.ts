@@ -15,7 +15,7 @@ const ANSI = {
   yellow: '\x1b[33m',
   cyan: '\x1b[36m',
   magenta: '\x1b[35m',
-  clearScreen: '\x1Bc',             // Full terminal reset on each update
+  clearScreen: '\x1b[2J\x1b[H',     // Reposition cursor without clearing scrollback/flickering
 };
 
 type OutputLevel = 'INFO' | 'OK' | 'WARN' | 'ERR' | 'PAIR' | 'SENT' | 'SYS';
@@ -621,6 +621,9 @@ export function attachLindaInteractiveTerminal(): void {
   renderDashboard();
   setInterval(() => {
     tickCount += 1;
-    renderDashboard();
-  }, 1000).unref();
+    // Don't refresh screen while user is typing in raw keypad mode to avoid wiping input line
+    if (!inputBuffer && pairingSelectMode === 'none') {
+      renderDashboard();
+    }
+  }, 2000).unref();
 }

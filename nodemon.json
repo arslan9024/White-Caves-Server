@@ -8,6 +8,7 @@
     "modules/**",
     ".linda-sessions/**",
     "sessions/**",
+    "data/**",
     "**/*.test.ts",
     "**/*.spec.ts"
   ],
