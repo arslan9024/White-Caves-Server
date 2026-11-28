@@ -215,9 +215,14 @@ function renderDashboard(): void {
   }
 
   const rightCol: string[] = [
-    `${ANSI.cyan}${ANSI.bold}▼ OUTPUT SIDE${ANSI.reset} ${ANSI.dim}(Server & AI Agents)${ANSI.reset}`,
-    `${ANSI.cyan}▸ WHITE CAVES SERVER${ANSI.reset} ${ANSI.dim}(${suppressedDuplicates} dupes suppressed)${ANSI.reset}`,
+    `${ANSI.cyan}${ANSI.bold}▼ OUTPUT SIDE${ANSI.reset} ${ANSI.dim}(Accounts, Server & AI Agents)${ANSI.reset}`,
+    `${ANSI.yellow}▸ MASTER & HUNTER ACCOUNTS${ANSI.reset} ${ANSI.dim}(${connectedCount}/${accounts.length} online)${ANSI.reset}`,
   ];
+  for (const acc of accounts) {
+    const badge = acc.isConnected ? `${ANSI.green}● ONLINE ${ANSI.reset}` : `${ANSI.yellow}○ OFFLINE${ANSI.reset}`;
+    rightCol.push(`  ${ANSI.white}${acc.id.padEnd(10)}${ANSI.reset} ${ANSI.slate}+${acc.phoneNumber.padEnd(13)}${ANSI.reset} ${badge} ${ANSI.dim}[${acc.engineStatus}]${ANSI.reset}`);
+  }
+  rightCol.push(`${ANSI.cyan}▸ WHITE CAVES SERVER${ANSI.reset} ${ANSI.dim}(${suppressedDuplicates} dupes suppressed)${ANSI.reset}`);
   const maxRightMsg = Math.max(24, rightW - 16);
   if (serverFeed.length === 0) {
     rightCol.push(`  ${ANSI.dim}No server events yet.${ANSI.reset}`);
