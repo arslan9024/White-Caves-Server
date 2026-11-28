@@ -186,7 +186,8 @@ function padAnsi(str: string, width: number): string {
 function renderDashboard(): void {
   const width = Math.max(88, Math.min(process.stdout.columns || 110, 128));
   const colGap = ' │ ';
-  const leftW = Math.floor((width - 3) * 0.58);
+  const leftW = Math.floor((width - 3) * 0.33);
+  const rightW = width - 3 - leftW;
   const divider = `${ANSI.slate}${'─'.repeat(width)}${ANSI.reset}`;
   const accounts = lindaMultiSimPool.listPoolAccounts();
   const connectedCount = accounts.filter(a => a.isConnected).length;
@@ -198,42 +199,41 @@ function renderDashboard(): void {
   const liveDot = tickCount % 2 === 0 ? `${ANSI.green}● LIVE${ANSI.reset}` : `${ANSI.dim}○ LIVE${ANSI.reset}`;
 
   const leftCol: string[] = [
-    `${ANSI.cyan}${ANSI.bold}▼ OUTPUT SIDE${ANSI.reset} ${ANSI.dim}(Server & AI Agents)${ANSI.reset}`,
-    `${ANSI.cyan}▸ WHITE CAVES SERVER${ANSI.reset} ${ANSI.dim}(${suppressedDuplicates} dupes suppressed)${ANSI.reset}`,
+    `${ANSI.red}${ANSI.bold}▲ INPUT SIDE${ANSI.reset} ${ANSI.dim}(${lastCommandMs}ms)${ANSI.reset}`,
+    `${ANSI.cyan}[1]${ANSI.reset} Pair   ${ANSI.cyan}[4]${ANSI.reset} Clear`,
+    `${ANSI.cyan}[2]${ANSI.reset} Status ${ANSI.cyan}[5]${ANSI.reset} Help`,
+    `${ANSI.cyan}[3]${ANSI.reset} Health ${ANSI.cyan}[6]${ANSI.reset} ${ANSI.green}${activeAgent}${ANSI.reset}`,
+    `${ANSI.cyan}[0]${ANSI.reset} Quit   ${ANSI.dim}s <ph> <msg>${ANSI.reset}`,
+    `${ANSI.magenta}${ANSI.bold}◆ NODEMON${ANSI.reset} ${ANSI.dim}(SIGTERM)${ANSI.reset}`,
+    `  Boot: ${ANSI.white}${new Date(startedAt).toLocaleTimeString('en-GB', { hour12: false })}${ANSI.reset}`,
+    `${ANSI.white}SIMs:${ANSI.reset} ${accounts.map(a => `${a.isConnected ? ANSI.green + '●' : ANSI.yellow + '○'}${ANSI.reset}${a.id.slice(0, 4)}`).join(' ')}`,
   ];
-  const maxLeftMsg = Math.max(20, leftW - 16);
-  if (serverFeed.length === 0) {
-    leftCol.push(`  ${ANSI.dim}No server events yet.${ANSI.reset}`);
+  if (rawKeypadActive) {
+    leftCol.push(`${ANSI.red}${ANSI.bold}input>${ANSI.reset} ${ANSI.white}${inputBuffer}${ANSI.reset}`);
   } else {
-    for (const entry of serverFeed) {
-      leftCol.push(`${ANSI.dim}${entry.time}${ANSI.reset} ${levelColor(entry.level)}[${entry.level.padEnd(4)}]${ANSI.reset} ${ANSI.white}${truncate(entry.message, maxLeftMsg)}${ANSI.reset}`);
-    }
-  }
-  leftCol.push(`${ANSI.green}▸ AI ${activeAgent.toUpperCase()} OUTPUT${ANSI.reset} ${ANSI.dim}([6] switch)${ANSI.reset}`);
-  const activeFeed = agentFeeds[activeAgent];
-  if (activeFeed.length === 0) {
-    leftCol.push(`  ${ANSI.dim}No ${activeAgent} events yet.${ANSI.reset}`);
-  } else {
-    for (const entry of activeFeed) {
-      leftCol.push(`${ANSI.dim}${entry.time}${ANSI.reset} ${levelColor(entry.level)}[${entry.level.padEnd(4)}]${ANSI.reset} ${ANSI.white}${truncate(entry.message, maxLeftMsg)}${ANSI.reset}`);
-    }
+    leftCol.push(`${ANSI.dim}1-6/0 or cmd + Enter${ANSI.reset}`);
   }
 
   const rightCol: string[] = [
-    `${ANSI.red}${ANSI.bold}▲ INPUT SIDE${ANSI.reset} ${ANSI.dim}(Last: ${truncate(lastInputCommand, 14)} ${lastCommandMs}ms)${ANSI.reset}`,
-    `${ANSI.cyan}[1]${ANSI.reset} Pair Master   ${ANSI.cyan}[4]${ANSI.reset} Clear`,
-    `${ANSI.cyan}[2]${ANSI.reset} Status        ${ANSI.cyan}[5]${ANSI.reset} Help`,
-    `${ANSI.cyan}[3]${ANSI.reset} Health        ${ANSI.cyan}[6]${ANSI.reset} Agent:${ANSI.green}${activeAgent}${ANSI.reset}`,
-    `${ANSI.cyan}[0]${ANSI.reset} Quit          ${ANSI.dim}s <phone> <msg>${ANSI.reset}`,
-    `${ANSI.magenta}${ANSI.bold}◆ NODEMON / WATCHER${ANSI.reset}`,
-    `  Boot: ${ANSI.white}${new Date(startedAt).toLocaleTimeString('en-GB', { hour12: false })}${ANSI.reset} | ${ANSI.cyan}SIGTERM${ANSI.reset}`,
-    `  Watch: ${ANSI.dim}server, prisma, src${ANSI.reset}`,
-    `${ANSI.white}SIMs:${ANSI.reset} ${accounts.map(a => `${a.isConnected ? ANSI.green + '●' : ANSI.yellow + '○'}${ANSI.reset}${a.id.slice(0, 6)}`).join(' ')}`,
+    `${ANSI.cyan}${ANSI.bold}▼ OUTPUT SIDE${ANSI.reset} ${ANSI.dim}(Server & AI Agents)${ANSI.reset}`,
+    `${ANSI.cyan}▸ WHITE CAVES SERVER${ANSI.reset} ${ANSI.dim}(${suppressedDuplicates} dupes suppressed)${ANSI.reset}`,
   ];
-  if (rawKeypadActive) {
-    rightCol.push(`${ANSI.red}${ANSI.bold}input>${ANSI.reset} ${ANSI.white}${inputBuffer}${ANSI.reset}`);
+  const maxRightMsg = Math.max(24, rightW - 16);
+  if (serverFeed.length === 0) {
+    rightCol.push(`  ${ANSI.dim}No server events yet.${ANSI.reset}`);
   } else {
-    rightCol.push(`${ANSI.dim}Type 1-6/0 or cmd + Enter${ANSI.reset}`);
+    for (const entry of serverFeed) {
+      rightCol.push(`${ANSI.dim}${entry.time}${ANSI.reset} ${levelColor(entry.level)}[${entry.level.padEnd(4)}]${ANSI.reset} ${ANSI.white}${truncate(entry.message, maxRightMsg)}${ANSI.reset}`);
+    }
+  }
+  rightCol.push(`${ANSI.green}▸ AI ${activeAgent.toUpperCase()} OUTPUT${ANSI.reset} ${ANSI.dim}([6] switch)${ANSI.reset}`);
+  const activeFeed = agentFeeds[activeAgent];
+  if (activeFeed.length === 0) {
+    rightCol.push(`  ${ANSI.dim}No ${activeAgent} events yet.${ANSI.reset}`);
+  } else {
+    for (const entry of activeFeed) {
+      rightCol.push(`${ANSI.dim}${entry.time}${ANSI.reset} ${levelColor(entry.level)}[${entry.level.padEnd(4)}]${ANSI.reset} ${ANSI.white}${truncate(entry.message, maxRightMsg)}${ANSI.reset}`);
+    }
   }
 
   const lines: string[] = [
